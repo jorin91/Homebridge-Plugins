@@ -94,24 +94,18 @@ The example below shows every supported property. It is written as JSONC so each
 
 ### Install Without Local Git
 
-Install the published `homebridge-scheduled-switch` package asset from the latest GitHub release:
-
-[Latest release](https://github.com/jorin91/Homebridge-Plugins/releases/latest)
+Install the package asset attached to the latest GitHub release:
 
 ```powershell
-$release = Invoke-RestMethod "https://api.github.com/repos/jorin91/Homebridge-Plugins/releases/latest"
-$asset = $release.assets | Where-Object { $_.name -like "homebridge-scheduled-switch-*.tgz" } | Select-Object -First 1
-npm install -g $asset.browser_download_url
+npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/latest/download/homebridge-scheduled-switch-0.1.0.tgz"
 ```
 
 ### Update Without Local Git
 
-Install the latest published package asset over the existing global package:
+Install the package asset attached to the latest GitHub release over the existing global package:
 
 ```powershell
-$release = Invoke-RestMethod "https://api.github.com/repos/jorin91/Homebridge-Plugins/releases/latest"
-$asset = $release.assets | Where-Object { $_.name -like "homebridge-scheduled-switch-*.tgz" } | Select-Object -First 1
-npm install -g $asset.browser_download_url
+npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/latest/download/homebridge-scheduled-switch-0.1.0.tgz"
 ```
 
 ### Install With Local Git
