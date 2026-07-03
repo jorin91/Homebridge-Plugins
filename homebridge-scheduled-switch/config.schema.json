@@ -4,6 +4,9 @@
   "singular": true,
   "schema": {
     "type": "object",
+    "default": {
+      "devices": []
+    },
     "properties": {
       "devices": {
         "title": "Devices",
@@ -92,22 +95,7 @@
           },
           "required": ["name", "entries"]
         },
-        "default": [
-          {
-            "id": "pump-schedule",
-            "name": "Pump Schedule",
-            "inverseState": false,
-            "enableIntervalCheck": false,
-            "intervalMinutes": 15,
-            "entries": [
-              {
-                "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
-                "start": "20:00",
-                "end": "21:00"
-              }
-            ]
-          }
-        ]
+        "default": []
       }
     },
     "required": ["devices"]
@@ -120,4 +108,3 @@
     }
   ]
 }
-
