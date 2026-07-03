@@ -94,18 +94,22 @@ The example below shows every supported property. It is written as JSONC so each
 
 ### Install Without Local Git
 
-Install the package asset attached to the latest GitHub release:
+Install the package asset from the current plugin release:
+
+[homebridge-scheduled-switch-v0.1.0](https://github.com/jorin91/Homebridge-Plugins/releases/tag/homebridge-scheduled-switch-v0.1.0)
 
 ```powershell
-npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/latest/download/homebridge-scheduled-switch-0.1.0.tgz"
+npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/homebridge-scheduled-switch-v0.1.0/homebridge-scheduled-switch-0.1.0.tgz"
 ```
 
 ### Update Without Local Git
 
-Install the package asset attached to the latest GitHub release over the existing global package:
+Install the package asset from the current plugin release over the existing global package:
+
+[homebridge-scheduled-switch-v0.1.0](https://github.com/jorin91/Homebridge-Plugins/releases/tag/homebridge-scheduled-switch-v0.1.0)
 
 ```powershell
-npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/latest/download/homebridge-scheduled-switch-0.1.0.tgz"
+npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/homebridge-scheduled-switch-v0.1.0/homebridge-scheduled-switch-0.1.0.tgz"
 ```
 
 ### Install With Local Git
