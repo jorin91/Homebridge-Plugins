@@ -94,32 +94,24 @@ The example below shows every supported property. It is written as JSONC so each
 
 ### Install Without Local Git
 
-Open the [GitHub Releases page](https://github.com/jorin91/Homebridge-Plugins/releases), choose the `homebridge-scheduled-switch` release you want, and copy or download its `.tgz` asset.
+Install the published `homebridge-scheduled-switch` package asset from the latest GitHub release:
 
-Install directly from the chosen asset URL:
-
-```powershell
-npm install -g "PASTE_CHOSEN_HOMEBRIDGE_SCHEDULED_SWITCH_TGZ_URL_HERE"
-```
-
-Or install after downloading the asset locally:
+[Latest release](https://github.com/jorin91/Homebridge-Plugins/releases/latest)
 
 ```powershell
-npm install -g "C:\Path\To\homebridge-scheduled-switch.tgz"
+$release = Invoke-RestMethod "https://api.github.com/repos/jorin91/Homebridge-Plugins/releases/latest"
+$asset = $release.assets | Where-Object { $_.name -like "homebridge-scheduled-switch-*.tgz" } | Select-Object -First 1
+npm install -g $asset.browser_download_url
 ```
 
 ### Update Without Local Git
 
-Open the [GitHub Releases page](https://github.com/jorin91/Homebridge-Plugins/releases), choose the newer `homebridge-scheduled-switch` `.tgz` asset, and install that asset over the existing global package.
+Install the latest published package asset over the existing global package:
 
 ```powershell
-npm install -g "PASTE_NEWER_HOMEBRIDGE_SCHEDULED_SWITCH_TGZ_URL_HERE"
-```
-
-Or update from a downloaded asset:
-
-```powershell
-npm install -g "C:\Path\To\newer-homebridge-scheduled-switch.tgz"
+$release = Invoke-RestMethod "https://api.github.com/repos/jorin91/Homebridge-Plugins/releases/latest"
+$asset = $release.assets | Where-Object { $_.name -like "homebridge-scheduled-switch-*.tgz" } | Select-Object -First 1
+npm install -g $asset.browser_download_url
 ```
 
 ### Install With Local Git
@@ -148,3 +140,5 @@ npm install -g .
 ```powershell
 npm uninstall -g homebridge-scheduled-switch
 ```
+
+
