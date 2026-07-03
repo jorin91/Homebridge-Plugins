@@ -15,6 +15,25 @@ The plugin does not talk to physical devices directly. It exposes scheduled virt
 - Allows manual changes until the next configured schedule trigger.
 - Can optionally re-apply the schedule on a fixed local interval grid, such as every 15 minutes.
 
+## Schedule Behavior
+
+- With `inverseState: false`, the switch is on inside any configured range and off outside all ranges.
+- With `inverseState: true`, the switch is off inside any configured range and on outside all ranges.
+- If `end` is earlier than `start`, the schedule range continues after midnight.
+- If `start` equals `end`, the schedule range is active for the full configured day.
+- Manual changes stay active until the next configured start or end trigger.
+- `enableIntervalCheck` can correct manual changes before the next start or end trigger.
+- Interval checks are aligned from local `00:00`. For example, `15` checks at `:00`, `:15`, `:30`, and `:45`.
+
+## Automation Pattern
+
+Create two automations for each virtual switch you want to use:
+
+1. When the virtual schedule switch turns on, turn the physical smart switch on.
+2. When the virtual schedule switch turns off, turn the physical smart switch off.
+
+The plugin itself never talks to the physical device. It only exposes scheduled virtual switch states through Homebridge.
+
 ## Complete Config Example
 
 The example below shows every supported property. It is written as JSONC so each property can be explained inline. Remove the `//` comments if your Homebridge editor only accepts strict JSON.
@@ -69,14 +88,11 @@ The example below shows every supported property. It is written as JSONC so each
 
 - Valid day values are `mon`, `tue`, `wed`, `thu`, `fri`, `sat`, and `sun`.
 - `entries[].start` and `entries[].end` must use strict local `HH:mm` 24-hour time.
-- With `inverseState: false`, the switch is on inside any configured range and off outside all ranges.
-- With `inverseState: true`, the switch is off inside any configured range and on outside all ranges.
-- If `end` is earlier than `start`, the schedule range continues after midnight.
-- If `start` equals `end`, the schedule range is active for the full configured day.
-- `enableIntervalCheck` is useful when manual changes should be corrected automatically before the next start or end trigger.
 - `id` should stay stable once the accessory exists. Changing it creates a new accessory identity.
 
-## Install Without Local Git
+## Installation And Updates
+
+### Install Without Local Git
 
 Open the [GitHub Releases page](https://github.com/jorin91/Homebridge-Plugins/releases), choose the `homebridge-scheduled-switch` release you want, and copy or download its `.tgz` asset.
 
@@ -92,7 +108,23 @@ Or install after downloading the asset locally:
 npm install -g "C:\Path\To\homebridge-scheduled-switch.tgz"
 ```
 
-## Install With Local Git
+### Update Without Local Git
+
+Open the [GitHub Releases page](https://github.com/jorin91/Homebridge-Plugins/releases), choose the newer `homebridge-scheduled-switch` `.tgz` asset, and install that asset over the existing global package.
+
+```powershell
+npm install -g "PASTE_NEWER_HOMEBRIDGE_SCHEDULED_SWITCH_TGZ_URL_HERE"
+```
+
+Or update from a downloaded asset:
+
+```powershell
+npm install -g "C:\Path\To\newer-homebridge-scheduled-switch.tgz"
+```
+
+### Install With Local Git
+
+Clone the repository and install the plugin from its own folder:
 
 ```powershell
 git clone https://github.com/jorin91/Homebridge-Plugins.git
@@ -100,15 +132,9 @@ cd Homebridge-Plugins\homebridge-scheduled-switch
 npm install -g .
 ```
 
-## Update
+### Update With Local Git
 
-Choose the newer `homebridge-scheduled-switch` `.tgz` asset from the [GitHub Releases page](https://github.com/jorin91/Homebridge-Plugins/releases), then run the same command-line install again:
-
-```powershell
-npm install -g "PASTE_CHOSEN_HOMEBRIDGE_SCHEDULED_SWITCH_TGZ_URL_HERE"
-```
-
-With a local git checkout:
+Pull the latest repository changes, then reinstall the plugin from its folder so the global Homebridge installation points at the updated local code:
 
 ```powershell
 cd Homebridge-Plugins
@@ -117,17 +143,8 @@ cd homebridge-scheduled-switch
 npm install -g .
 ```
 
-## Uninstall
+### Uninstall
 
 ```powershell
 npm uninstall -g homebridge-scheduled-switch
 ```
-
-## Automation Pattern
-
-Create two automations for each virtual switch you want to use:
-
-1. When the virtual schedule switch turns on, turn the physical smart switch on.
-2. When the virtual schedule switch turns off, turn the physical smart switch off.
-
-The plugin itself never talks to the physical device. It only exposes scheduled virtual switch states through Homebridge.
