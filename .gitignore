@@ -1,0 +1,15 @@
+# Local agent context is intentionally kept out of repositories.
+context/
+**/context/
+
+# Dependencies, logs, and local machine data.
+node_modules/
+**/node_modules/
+npm-debug.log*
+.local/
+**/.local/
+config.json
+**/config.json
+
+# Separate plugin repositories are managed outside the central Homebridge-Plugins repo.
+homebridge-nefit-easy/

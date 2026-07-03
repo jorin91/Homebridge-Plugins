@@ -1,0 +1,123 @@
+{
+  "pluginAlias": "ScheduledSwitch",
+  "pluginType": "platform",
+  "singular": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "devices": {
+        "title": "Devices",
+        "type": "array",
+        "description": "Virtual switches created by this platform. Each device gets its own virtual switch, schedule entries, inverse-state behavior, manual override behavior, and optional periodic schedule check.",
+        "items": {
+          "title": "Scheduled Switch",
+          "type": "object",
+          "properties": {
+            "id": {
+              "title": "Stable ID",
+              "type": "string",
+              "description": "Optional stable identifier for this virtual switch. Keep this value unchanged when renaming the device so Homebridge keeps the same accessory. Use lowercase letters, numbers, and dashes for readability."
+            },
+            "name": {
+              "title": "Name",
+              "type": "string",
+              "default": "Scheduled Switch",
+              "description": "The display name shown for this virtual switch. Automations can use this switch turning on or off as their trigger."
+            },
+            "inverseState": {
+              "title": "Inverse State",
+              "type": "boolean",
+              "default": false,
+              "description": "When disabled, the switch is on inside configured ranges and off outside them. When enabled, the switch is off inside configured ranges and on outside them."
+            },
+            "entries": {
+              "title": "Schedule Entries",
+              "type": "array",
+              "description": "Schedule ranges for this virtual switch. By default each range represents on state. Enable inverse state to make each range represent off state instead.",
+              "items": {
+                "title": "Schedule Entry",
+                "type": "object",
+                "properties": {
+                  "days": {
+                    "title": "Days",
+                    "type": "array",
+                    "description": "Days where this entry starts. Leave empty or omit the field to use every day.",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+                      "enumNames": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+                    },
+                    "default": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+                  },
+                  "start": {
+                    "title": "Start Time",
+                    "type": "string",
+                    "default": "20:00",
+                    "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                    "description": "Local 24-hour time where this entry starts, formatted as HH:mm."
+                  },
+                  "end": {
+                    "title": "End Time",
+                    "type": "string",
+                    "default": "21:00",
+                    "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                    "description": "Local 24-hour time where this entry ends, formatted as HH:mm. An end time earlier than the start time creates an overnight range."
+                  }
+                },
+                "required": ["start", "end"]
+              },
+              "default": [
+                {
+                  "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+                  "start": "20:00",
+                  "end": "21:00"
+                }
+              ]
+            },
+            "enableIntervalCheck": {
+              "title": "Enable Periodic Check",
+              "type": "boolean",
+              "default": false,
+              "description": "When enabled, this device periodically re-applies the schedule even between start and end triggers. When disabled, manual changes remain until the next configured schedule trigger."
+            },
+            "intervalMinutes": {
+              "title": "Interval Minutes",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1440,
+              "default": 15,
+              "description": "Periodic check interval in minutes, aligned from local 00:00. For example, 15 checks at :00, :15, :30, and :45. Used only when periodic checks are enabled."
+            }
+          },
+          "required": ["name", "entries"]
+        },
+        "default": [
+          {
+            "id": "pump-schedule",
+            "name": "Pump Schedule",
+            "inverseState": false,
+            "enableIntervalCheck": false,
+            "intervalMinutes": 15,
+            "entries": [
+              {
+                "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+                "start": "20:00",
+                "end": "21:00"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "required": ["devices"]
+  },
+  "layout": [
+    {
+      "type": "fieldset",
+      "title": "Scheduled Switches",
+      "items": ["devices"]
+    }
+  ]
+}
+
