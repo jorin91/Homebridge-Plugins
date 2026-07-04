@@ -1,6 +1,6 @@
 {
   "name": "homebridge-jsg-switches",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "JSGaming Homebridge platform for virtual switch accessories.",
   "platform": "JSG-Switches",
   "displayName": "JSG-Switches",

@@ -53,10 +53,34 @@
                     "uniqueItems": true,
                     "items": {
                       "type": "string",
-                      "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
-                      "enumNames": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+                      "enum": [
+                        "mon",
+                        "tue",
+                        "wed",
+                        "thu",
+                        "fri",
+                        "sat",
+                        "sun"
+                      ],
+                      "enumNames": [
+                        "Monday",
+                        "Tuesday",
+                        "Wednesday",
+                        "Thursday",
+                        "Friday",
+                        "Saturday",
+                        "Sunday"
+                      ]
                     },
-                    "default": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+                    "default": [
+                      "mon",
+                      "tue",
+                      "wed",
+                      "thu",
+                      "fri",
+                      "sat",
+                      "sun"
+                    ]
                   },
                   "start": {
                     "title": "Start Time",
@@ -73,11 +97,22 @@
                     "description": "Local 24-hour time where this entry ends, formatted as HH:mm. An end time earlier than the start time creates an overnight range."
                   }
                 },
-                "required": ["start", "end"]
+                "required": [
+                  "start",
+                  "end"
+                ]
               },
               "default": [
                 {
-                  "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+                  "days": [
+                    "mon",
+                    "tue",
+                    "wed",
+                    "thu",
+                    "fri",
+                    "sat",
+                    "sun"
+                  ],
                   "start": "20:00",
                   "end": "21:00"
                 }
@@ -98,7 +133,10 @@
               "description": "Periodic check interval in minutes, aligned from local 00:00. Used only when periodic checks are enabled."
             }
           },
-          "required": ["name", "entries"]
+          "required": [
+            "name",
+            "entries"
+          ]
         },
         "default": []
       },
@@ -123,7 +161,10 @@
               "description": "Start state when no persisted runtime state exists. Runtime changes are saved by the plugin."
             }
           },
-          "required": ["name", "state"]
+          "required": [
+            "name",
+            "state"
+          ]
         },
         "default": []
       },
@@ -161,7 +202,11 @@
               "description": "Optional local HH:mm anchor used to calculate interval moments. If omitted, the interval starts when the accessory becomes active."
             }
           },
-          "required": ["name", "state", "intervalMinutes"]
+          "required": [
+            "name",
+            "state",
+            "intervalMinutes"
+          ]
         },
         "default": []
       },
@@ -193,17 +238,34 @@
               "description": "Minutes before the switch returns to defaultState after being changed to the active state."
             }
           },
-          "required": ["name", "defaultState", "durationMinutes"]
+          "required": [
+            "name",
+            "defaultState",
+            "durationMinutes"
+          ]
         },
         "default": []
       }
-    }
+    },
+    "required": [
+      "name",
+      "scheduledSwitches",
+      "switches",
+      "intervalSwitches",
+      "timerSwitches"
+    ]
   },
   "layout": [
     {
       "type": "fieldset",
       "title": "JSG-Switches",
-      "items": ["name", "scheduledSwitches", "switches", "intervalSwitches", "timerSwitches"]
+      "items": [
+        "name",
+        "scheduledSwitches",
+        "switches",
+        "intervalSwitches",
+        "timerSwitches"
+      ]
     }
   ]
 }

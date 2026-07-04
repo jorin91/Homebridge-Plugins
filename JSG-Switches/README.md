@@ -195,10 +195,10 @@ The example below shows every supported property. It is written as JSONC so each
 
 Install or update the global package from the current plugin release:
 
-[JSG-Switches-v0.1.0](https://github.com/jorin91/Homebridge-Plugins/releases/tag/JSG-Switches-v0.1.0)
+[JSG-Switches-v0.1.1](https://github.com/jorin91/Homebridge-Plugins/releases/tag/JSG-Switches-v0.1.1)
 
 ```powershell
-npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/JSG-Switches-v0.1.0/JSG-Switches-0.1.0.tgz"
+npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/JSG-Switches-v0.1.1/JSG-Switches-0.1.1.tgz"
 ```
 
 ### Install With Local Git
