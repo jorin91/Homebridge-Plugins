@@ -109,10 +109,10 @@ Config fields:
 
 Install or update the global package from the current plugin release:
 
-[homebridge-jsg-scheduled-switch-v0.1.3](https://github.com/jorin91/Homebridge-Plugins/releases/tag/homebridge-jsg-scheduled-switch-v0.1.3)
+[homebridge-jsg-scheduled-switch-v0.1.4](https://github.com/jorin91/Homebridge-Plugins/releases/tag/homebridge-jsg-scheduled-switch-v0.1.4)
 
 ```powershell
-npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/homebridge-jsg-scheduled-switch-v0.1.3/homebridge-jsg-scheduled-switch-0.1.3.tgz"
+npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/homebridge-jsg-scheduled-switch-v0.1.4/homebridge-jsg-scheduled-switch-0.1.4.tgz"
 ```
 
 ### Install With Local Git
@@ -141,5 +141,4 @@ npm install -g .
 ```powershell
 npm uninstall -g homebridge-jsg-scheduled-switch
 ```
-
 

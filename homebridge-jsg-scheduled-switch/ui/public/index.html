@@ -1,71 +1,65 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>JSG Scheduled Switch</title>
-</head>
-<body>
-  <script>
-    const PLATFORM_NAME = 'JsgScheduledSwitch'
+<script>
+  const PLATFORM_NAME = 'JsgScheduledSwitch'
 
-    const DEFAULT_BLOCK = {
+  const DEFAULT_BLOCK = {
+    platform: PLATFORM_NAME,
+    name: PLATFORM_NAME,
+    devices: []
+  }
+
+  function isObject(value) {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
+  }
+
+  function normalizeArray(value) {
+    return Array.isArray(value) ? value : []
+  }
+
+  function normalizeName(value) {
+    return typeof value === 'string' && value.length > 0 ? value : PLATFORM_NAME
+  }
+
+  function normalizeBlock(block) {
+    const source = isObject(block) ? block : {}
+    return {
+      ...source,
       platform: PLATFORM_NAME,
-      devices: []
+      name: normalizeName(source.name),
+      devices: normalizeArray(source.devices)
+    }
+  }
+
+  function normalizeConfig(config) {
+    const blocks = Array.isArray(config) ? config : []
+    return blocks.length > 0 ? blocks.map(normalizeBlock) : [normalizeBlock(DEFAULT_BLOCK)]
+  }
+
+  function isSameConfig(first, second) {
+    return JSON.stringify(first) === JSON.stringify(second)
+  }
+
+  async function initialize() {
+    homebridge.showSpinner()
+    homebridge.disableSaveButton()
+
+    const currentConfig = await homebridge.getPluginConfig()
+    const normalizedConfig = normalizeConfig(currentConfig)
+
+    if (!isSameConfig(currentConfig, normalizedConfig)) {
+      await homebridge.updatePluginConfig(normalizedConfig)
     }
 
-    function isObject(value) {
-      return value !== null && typeof value === 'object' && !Array.isArray(value)
-    }
+    homebridge.showSchemaForm()
+    homebridge.hideSpinner()
+    homebridge.enableSaveButton()
+  }
 
-    function normalizeArray(value) {
-      return Array.isArray(value) ? value : []
-    }
-
-    function normalizeName(value) {
-      return typeof value === 'string' && value.length > 0 ? value : PLATFORM_NAME
-    }
-
-    function normalizeBlock(block) {
-      const source = isObject(block) ? block : {}
-      return {
-        ...source,
-        platform: normalizeName(source.platform),
-        devices: normalizeArray(source.devices)
-      }
-    }
-
-    function normalizeConfig(config) {
-      const blocks = Array.isArray(config) ? config : []
-      return blocks.length > 0 ? blocks.map(normalizeBlock) : [normalizeBlock(DEFAULT_BLOCK)]
-    }
-
-    function isSameConfig(first, second) {
-      return JSON.stringify(first) === JSON.stringify(second)
-    }
-
-    async function initialize() {
-      homebridge.showSpinner()
-      homebridge.disableSaveButton()
-
-      const currentConfig = await homebridge.getPluginConfig()
-      const normalizedConfig = normalizeConfig(currentConfig)
-
-      if (!isSameConfig(currentConfig, normalizedConfig)) {
-        await homebridge.updatePluginConfig(normalizedConfig)
-      }
-
-      homebridge.showSchemaForm()
-      homebridge.hideSpinner()
-      homebridge.enableSaveButton()
-    }
-
+  window.addEventListener('load', () => {
     initialize().catch(error => {
       console.error(error)
       homebridge.showSchemaForm()
       homebridge.hideSpinner()
       homebridge.enableSaveButton()
     })
-  </script>
-</body>
-</html>
-
+  })
+</script>
