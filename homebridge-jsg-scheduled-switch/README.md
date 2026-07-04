@@ -1,6 +1,6 @@
-# homebridge-scheduled-switch
+# homebridge-jsg-scheduled-switch
 
-`homebridge-scheduled-switch` is a Homebridge platform plugin that creates one or more neutral virtual switches. Each switch follows its own local weekly schedule and can be used as an automation trigger for a real device, such as a pump, relay, smart plug, light, heater, or any other accessory controlled elsewhere.
+`homebridge-jsg-scheduled-switch` is a Homebridge platform plugin that creates one or more neutral virtual switches. Each switch follows its own local weekly schedule and can be used as an automation trigger for a real device, such as a pump, relay, smart plug, light, heater, or any other accessory controlled elsewhere.
 
 The plugin does not talk to physical devices directly. It exposes scheduled virtual switches through Homebridge. Automations decide what should happen when a virtual switch turns on or off.
 
@@ -40,7 +40,7 @@ The example below shows every supported property. It is written as JSONC so each
 
 ```jsonc
 {
-  "platform": "ScheduledSwitch", // Required. Homebridge platform name registered by this plugin.
+  "platform": "JsgScheduledSwitch", // Required. Homebridge platform name registered by this plugin.
   "devices": [ // Required. List of virtual switches this platform should create.
     {
       "id": "pool-pump-schedule", // Optional but recommended. Stable accessory ID. Keep unchanged when renaming the switch.
@@ -96,20 +96,20 @@ The example below shows every supported property. It is written as JSONC so each
 
 Install the package asset from the current plugin release:
 
-[homebridge-scheduled-switch-v0.1.0](https://github.com/jorin91/Homebridge-Plugins/releases/tag/homebridge-scheduled-switch-v0.1.0)
+[homebridge-jsg-scheduled-switch-v0.1.1](https://github.com/jorin91/Homebridge-Plugins/releases/tag/homebridge-jsg-scheduled-switch-v0.1.1)
 
 ```powershell
-npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/homebridge-scheduled-switch-v0.1.0/homebridge-scheduled-switch-0.1.0.tgz"
+npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/homebridge-jsg-scheduled-switch-v0.1.1/homebridge-jsg-scheduled-switch-0.1.1.tgz"
 ```
 
 ### Update Without Local Git
 
 Install the package asset from the current plugin release over the existing global package:
 
-[homebridge-scheduled-switch-v0.1.0](https://github.com/jorin91/Homebridge-Plugins/releases/tag/homebridge-scheduled-switch-v0.1.0)
+[homebridge-jsg-scheduled-switch-v0.1.1](https://github.com/jorin91/Homebridge-Plugins/releases/tag/homebridge-jsg-scheduled-switch-v0.1.1)
 
 ```powershell
-npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/homebridge-scheduled-switch-v0.1.0/homebridge-scheduled-switch-0.1.0.tgz"
+npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/homebridge-jsg-scheduled-switch-v0.1.1/homebridge-jsg-scheduled-switch-0.1.1.tgz"
 ```
 
 ### Install With Local Git
@@ -118,7 +118,7 @@ Clone the repository and install the plugin from its own folder:
 
 ```powershell
 git clone https://github.com/jorin91/Homebridge-Plugins.git
-cd Homebridge-Plugins\homebridge-scheduled-switch
+cd Homebridge-Plugins\homebridge-jsg-scheduled-switch
 npm install -g .
 ```
 
@@ -129,14 +129,14 @@ Pull the latest repository changes, then reinstall the plugin from its folder so
 ```powershell
 cd Homebridge-Plugins
 git pull
-cd homebridge-scheduled-switch
+cd homebridge-jsg-scheduled-switch
 npm install -g .
 ```
 
 ### Uninstall
 
 ```powershell
-npm uninstall -g homebridge-scheduled-switch
+npm uninstall -g homebridge-jsg-scheduled-switch
 ```
 
 

@@ -13,3 +13,6 @@ config.json
 
 # Separate plugin repositories are managed outside the central Homebridge-Plugins repo.
 homebridge-nefit-easy/
+
+# Package artifacts are uploaded to releases, not committed.
+*.tgz

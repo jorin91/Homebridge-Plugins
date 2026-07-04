@@ -374,7 +374,7 @@ function formatMinutes(minuteOfDay) {
  * @returns {string} Warning prefix.
  */
 function formatOwner(ownerLabel) {
-  return ownerLabel ? `ScheduledSwitch device '${ownerLabel}'` : 'ScheduledSwitch device';
+  return ownerLabel ? `JsgScheduledSwitch device '${ownerLabel}'` : 'JsgScheduledSwitch device';
 }
 
 /**

@@ -2,8 +2,8 @@
 
 const schedule = require('./lib/schedule');
 
-const PLUGIN_NAME = 'homebridge-scheduled-switch';
-const PLATFORM_NAME = 'ScheduledSwitch';
+const PLUGIN_NAME = 'homebridge-jsg-scheduled-switch';
+const PLATFORM_NAME = 'JsgScheduledSwitch';
 const DEFAULT_DEVICE_NAME = 'Scheduled Switch';
 const DEFAULT_INTERVAL_MINUTES = 15;
 const MIN_INTERVAL_MINUTES = 1;
@@ -431,7 +431,7 @@ function normalizeDeviceConfigs(config, log) {
     }
 
     if (usedIds.has(deviceConfig.id)) {
-      writeWarning(log, `ScheduledSwitch device '${deviceConfig.name}' uses duplicate id '${deviceConfig.id}' and was skipped.`);
+      writeWarning(log, `JsgScheduledSwitch device '${deviceConfig.name}' uses duplicate id '${deviceConfig.id}' and was skipped.`);
       return devices;
     }
 
@@ -482,7 +482,7 @@ function createLegacyDeviceArray(config) {
  */
 function normalizeDeviceConfig(rawDevice, index, log) {
   if (!rawDevice || typeof rawDevice !== 'object') {
-    writeWarning(log, `ScheduledSwitch device ${index + 1} must be an object and was skipped.`);
+    writeWarning(log, `JsgScheduledSwitch device ${index + 1} must be an object and was skipped.`);
     return null;
   }
 
@@ -534,7 +534,7 @@ function normalizeIdentifier(value) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
 
-  return normalized || 'scheduled-switch';
+  return normalized || 'jsg-scheduled-switch';
 }
 
 /**
@@ -599,7 +599,7 @@ function setManagedTimeout(callback, delayMs) {
  * @returns {string} Stable serial number.
  */
 function createSerialNumber(id) {
-  return `scheduled-switch-${id || 'device'}`;
+  return `jsg-scheduled-switch-${id || 'device'}`;
 }
 
 /**

@@ -1,5 +1,5 @@
 {
-  "pluginAlias": "ScheduledSwitch",
+  "pluginAlias": "JsgScheduledSwitch",
   "pluginType": "platform",
   "singular": true,
   "schema": {
@@ -103,7 +103,7 @@
   "layout": [
     {
       "type": "fieldset",
-      "title": "Scheduled Switches",
+      "title": "JSG Scheduled Switches",
       "items": ["devices"]
     }
   ]
