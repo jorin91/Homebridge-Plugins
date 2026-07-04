@@ -36,47 +36,47 @@ The plugin itself never talks to the physical device. It only exposes scheduled 
 
 ## Complete Config Example
 
-The example below shows every supported property. It is written as JSONC so each property can be explained inline. Remove the `//` comments if your Homebridge editor only accepts strict JSON.
+The example below shows every supported property as strict JSON.
 
-```jsonc
+```json
 {
-  "platform": "JsgScheduledSwitch", // Required. Homebridge platform name registered by this plugin.
-  "devices": [ // Required. List of virtual switches this platform should create.
+  "platform": "JsgScheduledSwitch",
+  "devices": [
     {
-      "id": "pool-pump-schedule", // Optional but recommended. Stable accessory ID. Keep unchanged when renaming the switch.
-      "name": "Pool Pump Schedule", // Required. Display name for this virtual switch.
-      "inverseState": false, // Optional. False means ranges are on. True means ranges are off and outside ranges is on.
-      "enableIntervalCheck": false, // Optional. When true, the schedule is also re-applied on the interval grid.
-      "intervalMinutes": 15, // Optional. Interval-check size from 1 to 1440 minutes. Only used when enableIntervalCheck is true.
-      "entries": [ // Required. Schedule ranges. By default these ranges represent when the switch is on.
+      "id": "pool-pump-schedule",
+      "name": "Pool Pump Schedule",
+      "inverseState": false,
+      "enableIntervalCheck": false,
+      "intervalMinutes": 15,
+      "entries": [
         {
-          "days": ["mon", "tue", "wed", "thu", "fri"], // Optional. Entry start days. Omit or use [] for every day.
-          "start": "08:00", // Required per entry. Local 24-hour time where the range starts.
-          "end": "10:00" // Required per entry. Local 24-hour time where the range ends.
+          "days": ["mon", "tue", "wed", "thu", "fri"],
+          "start": "08:00",
+          "end": "10:00"
         },
         {
-          "days": ["sat", "sun"], // Weekend-only entry.
-          "start": "22:00", // Overnight ranges are allowed when end is earlier than start.
-          "end": "01:30" // This keeps the range active until 01:30 on the next calendar day.
+          "days": ["sat", "sun"],
+          "start": "22:00",
+          "end": "01:30"
         },
         {
-          "days": ["wed"], // One selected day.
-          "start": "00:00", // Equal start and end values mean the range is active for the full configured day.
+          "days": ["wed"],
+          "start": "00:00",
           "end": "00:00"
         }
       ]
     },
     {
-      "id": "inverted-ventilation-schedule", // Optional stable ID for this second virtual switch.
-      "name": "Inverted Ventilation Schedule", // Required display name.
-      "inverseState": true, // Optional. This switch is off during the configured range and on outside it.
-      "enableIntervalCheck": true, // Optional. Manual changes are corrected at the next interval check.
-      "intervalMinutes": 30, // Optional. Checks at local :00 and :30 when interval checks are enabled.
-      "entries": [ // Required schedule ranges for this device.
+      "id": "inverted-ventilation-schedule",
+      "name": "Inverted Ventilation Schedule",
+      "inverseState": true,
+      "enableIntervalCheck": true,
+      "intervalMinutes": 30,
+      "entries": [
         {
-          "days": [], // Optional. Empty array means every day.
-          "start": "18:00", // Required per entry.
-          "end": "23:00" // Required per entry.
+          "days": [],
+          "start": "18:00",
+          "end": "23:00"
         }
       ]
     }
@@ -84,6 +84,18 @@ The example below shows every supported property. It is written as JSONC so each
 }
 ```
 
+Config fields:
+
+- `platform` must be `JsgScheduledSwitch`.
+- `devices` contains the virtual scheduled switches this platform should create.
+- `id` is optional but recommended for stable accessory identity.
+- `name` is the display name for the virtual switch.
+- `inverseState` false means ranges are on. True means ranges are off and outside ranges is on.
+- `enableIntervalCheck` re-applies schedule state on the interval grid when enabled.
+- `intervalMinutes` controls the optional interval check size.
+- `entries` contains schedule ranges.
+- `entries[].days` may be omitted or empty for every day.
+- `entries[].start` and `entries[].end` use local `HH:mm` time.
 ## Config Notes
 
 - Valid day values are `mon`, `tue`, `wed`, `thu`, `fri`, `sat`, and `sun`.

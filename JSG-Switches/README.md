@@ -18,7 +18,7 @@ The plugin does not control physical devices directly. It exposes virtual switch
 
 Use one array per switch behavior:
 
-```jsonc
+```json
 {
   "platform": "JSG-Switches",
   "name": "JSG-Switches",
@@ -45,7 +45,7 @@ Renaming a device changes the generated accessory ID.
 
 Scheduled switches live in `scheduledSwitches`.
 
-```jsonc
+```json
 {
   "name": "Pool Pump Schedule",
   "defaultState": false,
@@ -78,7 +78,7 @@ Behavior:
 
 Plain switches live in `switches`.
 
-```jsonc
+```json
 {
   "name": "Manual Mode",
   "state": false
@@ -98,7 +98,7 @@ Behavior:
 
 Interval switches live in `intervalSwitches`.
 
-```jsonc
+```json
 {
   "name": "Interval Toggle",
   "state": false,
@@ -121,7 +121,7 @@ Behavior:
 
 Timer switches live in `timerSwitches`.
 
-```jsonc
+```json
 {
   "name": "Maintenance Timer",
   "defaultState": false,
@@ -139,66 +139,84 @@ Behavior:
 
 ## Complete Config Example
 
-The example below shows every supported property. It is written as JSONC so each property can be explained inline. Remove the `//` comments if your Homebridge editor only accepts strict JSON.
+The example below shows every supported property as strict JSON.
 
-```jsonc
+```json
 {
-  "platform": "JSG-Switches", // Required. Homebridge platform name registered by this plugin.
-  "name": "JSG-Switches", // Optional. Label for this platform config block.
-  "scheduledSwitches": [ // Scheduled virtual switches.
+  "platform": "JSG-Switches",
+  "name": "JSG-Switches",
+  "scheduledSwitches": [
     {
-      "name": "Pool Pump Schedule", // Required. Display name and source for the generated accessory ID.
-      "defaultState": false, // Optional. State outside active schedule ranges.
-      "enableIntervalCheck": false, // Optional. When true, schedule state is also re-applied on the interval grid.
-      "intervalMinutes": 15, // Optional. Interval check size from 1 to 1440 minutes.
-      "entries": [ // Required. Schedule ranges.
+      "name": "Pool Pump Schedule",
+      "defaultState": false,
+      "enableIntervalCheck": false,
+      "intervalMinutes": 15,
+      "entries": [
         {
-          "days": ["mon", "tue", "wed", "thu", "fri"], // Optional. Omit or use [] for every day.
-          "start": "08:00", // Required per entry. Local range start time.
-          "end": "10:00" // Required per entry. Local range end time.
+          "days": ["mon", "tue", "wed", "thu", "fri"],
+          "start": "08:00",
+          "end": "10:00"
         },
         {
-          "days": ["sat", "sun"], // Weekend-only entry.
-          "start": "22:00", // Overnight ranges are allowed.
-          "end": "01:30" // This keeps the range active until 01:30 on the next calendar day.
+          "days": ["sat", "sun"],
+          "start": "22:00",
+          "end": "01:30"
         }
       ]
     }
   ],
-  "switches": [ // Plain virtual switches.
+  "switches": [
     {
-      "name": "Manual Mode", // Required. Display name and source for the generated accessory ID.
-      "state": false // Required. Start state when no persisted runtime state exists.
+      "name": "Manual Mode",
+      "state": false
     }
   ],
-  "intervalSwitches": [ // Virtual switches that flip state on an interval.
+  "intervalSwitches": [
     {
-      "name": "Interval Toggle", // Required. Display name and source for the generated accessory ID.
-      "state": false, // Required. Start state when no persisted runtime state exists.
-      "intervalMinutes": 15, // Required. Minutes between state flips.
-      "startTime": "00:00" // Optional. Local HH:mm anchor for interval calculation.
+      "name": "Interval Toggle",
+      "state": false,
+      "intervalMinutes": 15,
+      "startTime": "00:00"
     }
   ],
-  "timerSwitches": [ // Virtual one-shot timer switches.
+  "timerSwitches": [
     {
-      "name": "Maintenance Timer", // Required. Display name and source for the generated accessory ID.
-      "defaultState": false, // Required. Inactive state.
-      "durationMinutes": 30 // Required. Minutes before returning to defaultState.
+      "name": "Maintenance Timer",
+      "defaultState": false,
+      "durationMinutes": 30
     }
   ]
 }
 ```
 
+Config fields:
+
+- `platform` must be `JSG-Switches`.
+- `name` is a label for the platform config block.
+- `scheduledSwitches` contains scheduled virtual switches.
+- `switches` contains plain virtual switches.
+- `intervalSwitches` contains interval-based virtual switches.
+- `timerSwitches` contains one-shot timer switches.
+- Device `name` values are required and are used to generate accessory IDs.
+- `defaultState` is used by scheduled and timer switches.
+- `state` is used by plain and interval switches as the start state when no persisted runtime state exists.
+- `enableIntervalCheck` only applies to scheduled switches.
+- `intervalMinutes` controls schedule checks on scheduled switches and state flips on interval switches.
+- `durationMinutes` controls when a timer switch returns to `defaultState`.
+- `startTime` is optional for interval switches and uses local `HH:mm` time.
+- `entries` contains scheduled switch ranges.
+- `entries[].days` may be omitted or empty for every day.
+- `entries[].start` and `entries[].end` use local `HH:mm` time.
 ## Installation And Updates
 
 ### Install Or Update Without Local Git
 
 Install or update the global package from the current plugin release:
 
-[JSG-Switches-v0.1.1](https://github.com/jorin91/Homebridge-Plugins/releases/tag/JSG-Switches-v0.1.1)
+[JSG-Switches-v0.1.2](https://github.com/jorin91/Homebridge-Plugins/releases/tag/JSG-Switches-v0.1.2)
 
 ```powershell
-npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/JSG-Switches-v0.1.1/JSG-Switches-0.1.1.tgz"
+npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/JSG-Switches-v0.1.2/JSG-Switches-0.1.2.tgz"
 ```
 
 ### Install With Local Git
