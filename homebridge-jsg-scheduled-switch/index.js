@@ -411,16 +411,25 @@ class ScheduledSwitchDevice {
 
 /**
  * <summary>
- * Normalizes all configured devices from the platform config. It accepts the new
- * `devices` array and also tolerates a single legacy-style config object for a
- * smoother transition from the first scaffold version.
+ * Normalizes all configured devices from the platform config. Only the documented
+ * `devices` array creates virtual switches. Root-level properties injected by
+ * Homebridge UI, such as `name`, are ignored.
  * </summary>
  * @param {object} config Platform configuration object.
  * @param {Function|object} log Homebridge logger.
  * @returns {Array<object>} Normalized, duplicate-free device configurations.
  */
 function normalizeDeviceConfigs(config, log) {
-  const rawDevices = Array.isArray(config.devices) ? config.devices : createLegacyDeviceArray(config);
+  if (!config || typeof config !== 'object' || config.devices === undefined || config.devices === null) {
+    return [];
+  }
+
+  if (!Array.isArray(config.devices)) {
+    writeWarning(log, 'JsgScheduledSwitch devices must be an array. No scheduled switches were loaded.');
+    return [];
+  }
+
+  const rawDevices = config.devices;
   const usedIds = new Set();
 
   return rawDevices.reduce((devices, rawDevice, index) => {
@@ -441,33 +450,6 @@ function normalizeDeviceConfigs(config, log) {
   }, []);
 }
 
-/**
- * <summary>
- * Creates a single-device array from the early accessory-style config shape when
-   * no `devices` array exists. This keeps existing local experiments from
- * failing immediately while the documented platform config moves to `devices`.
- * </summary>
- * @param {object} config Platform configuration object.
- * @returns {Array<object>} One legacy device or an empty list.
- */
-function createLegacyDeviceArray(config) {
-  if (!config || typeof config !== 'object') {
-    return [];
-  }
-
-  if (config.name || config.entries || config.schedule) {
-    return [{
-      id: config.id,
-      name: config.name,
-      entries: config.entries || config.schedule,
-      inverseState: config.inverseState,
-      enableIntervalCheck: config.enableIntervalCheck,
-      intervalMinutes: config.intervalMinutes
-    }];
-  }
-
-  return [];
-}
 
 /**
  * <summary>
@@ -654,6 +636,4 @@ function writeWarning(log, message) {
     log(message);
   }
 }
-
-
 
