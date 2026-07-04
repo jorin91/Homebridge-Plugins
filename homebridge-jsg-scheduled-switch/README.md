@@ -101,7 +101,7 @@ Config fields:
 - Valid day values are `mon`, `tue`, `wed`, `thu`, `fri`, `sat`, and `sun`.
 - `entries[].start` and `entries[].end` must use strict local `HH:mm` 24-hour time.
 - `id` should stay stable once the accessory exists. Changing it creates a new accessory identity.
-- The plugin only reads `devices`. If Homebridge UI creates a new raw config block with only `platform` and `name`, add `devices: []` before saving an empty config.
+- The plugin only reads `devices`. Homebridge UI is normalized by the plugin settings UI so an empty config keeps `devices: []` visible.
 
 ## Installation And Updates
 
@@ -109,10 +109,10 @@ Config fields:
 
 Install or update the global package from the current plugin release:
 
-[homebridge-jsg-scheduled-switch-v0.1.2](https://github.com/jorin91/Homebridge-Plugins/releases/tag/homebridge-jsg-scheduled-switch-v0.1.2)
+[homebridge-jsg-scheduled-switch-v0.1.3](https://github.com/jorin91/Homebridge-Plugins/releases/tag/homebridge-jsg-scheduled-switch-v0.1.3)
 
 ```powershell
-npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/homebridge-jsg-scheduled-switch-v0.1.2/homebridge-jsg-scheduled-switch-0.1.2.tgz"
+npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/homebridge-jsg-scheduled-switch-v0.1.3/homebridge-jsg-scheduled-switch-0.1.3.tgz"
 ```
 
 ### Install With Local Git
@@ -141,4 +141,5 @@ npm install -g .
 ```powershell
 npm uninstall -g homebridge-jsg-scheduled-switch
 ```
+
 

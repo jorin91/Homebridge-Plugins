@@ -1,6 +1,6 @@
 {
   "name": "homebridge-jsg-scheduled-switch",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "JSGaming Homebridge platform for virtual switches that follow configurable weekly schedules.",
   "platform": "JsgScheduledSwitch",
   "displayName": "JSG Scheduled Switch",
@@ -25,12 +25,14 @@
     "check": "node --check index.js && node --check lib/schedule.js"
   },
   "license": "MIT",
-  "author": "Jorin91",
+  "author": {
+    "name": "Jorin91"
+  },
   "homebridge": {
     "platform": "JsgScheduledSwitch",
     "name": "homebridge-jsg-scheduled-switch"
   },
-  "homepage": "https://github.com/jorin91/Homebridge-Plugins/tree/main/homebridge-jsg-scheduled-switch",
+  "homepage": "https://github.com/jorin91/Homebridge-Plugins",
   "repository": {
     "type": "git",
     "url": "https://github.com/jorin91/Homebridge-Plugins.git",

@@ -213,10 +213,10 @@ Config fields:
 
 Install or update the global package from the current plugin release:
 
-[JSG-Switches-v0.1.2](https://github.com/jorin91/Homebridge-Plugins/releases/tag/JSG-Switches-v0.1.2)
+[JSG-Switches-v0.1.3](https://github.com/jorin91/Homebridge-Plugins/releases/tag/JSG-Switches-v0.1.3)
 
 ```powershell
-npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/JSG-Switches-v0.1.2/JSG-Switches-0.1.2.tgz"
+npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/JSG-Switches-v0.1.3/JSG-Switches-0.1.3.tgz"
 ```
 
 ### Install With Local Git
