@@ -1,0 +1,44 @@
+{
+  "name": "homebridge-jsg-switches",
+  "version": "0.1.0",
+  "description": "JSGaming Homebridge platform for virtual switch accessories.",
+  "platform": "JSG-Switches",
+  "displayName": "JSG-Switches",
+  "main": "index.js",
+  "private": true,
+  "keywords": [
+    "homebridge-plugin",
+    "homebridge",
+    "switch",
+    "schedule",
+    "timer",
+    "interval",
+    "dummy-switch",
+    "virtual-switch",
+    "jsg",
+    "jsgaming",
+    "jorin91"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "homebridge": ">=1.6.0"
+  },
+  "scripts": {
+    "check": "node --check index.js && node --check lib/schedule.js"
+  },
+  "license": "MIT",
+  "author": "Jorin91",
+  "homebridge": {
+    "platform": "JSG-Switches",
+    "name": "homebridge-jsg-switches"
+  },
+  "homepage": "https://github.com/jorin91/Homebridge-Plugins/tree/main/JSG-Switches",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jorin91/Homebridge-Plugins.git",
+    "directory": "JSG-Switches"
+  },
+  "bugs": {
+    "url": "https://github.com/jorin91/Homebridge-Plugins/issues"
+  }
+}

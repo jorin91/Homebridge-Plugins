@@ -6,4 +6,5 @@ Releases are published per plugin so a Homebridge installation can install only 
 
 ## Plugins
 
+- [JSG-Switches](JSG-Switches/README.md): JSG Homebridge platform plugin for virtual switch accessories.
 - [homebridge-jsg-scheduled-switch](homebridge-jsg-scheduled-switch/README.md): JSG Homebridge platform plugin for configurable scheduled virtual switches.

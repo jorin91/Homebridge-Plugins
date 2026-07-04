@@ -1,0 +1,209 @@
+{
+  "pluginAlias": "JSG-Switches",
+  "pluginType": "platform",
+  "singular": true,
+  "schema": {
+    "type": "object",
+    "default": {
+      "name": "JSG-Switches",
+      "scheduledSwitches": [],
+      "switches": [],
+      "intervalSwitches": [],
+      "timerSwitches": []
+    },
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "JSG-Switches",
+        "description": "Optional label for this platform config block. Device names belong inside the typed switch arrays."
+      },
+      "scheduledSwitches": {
+        "title": "Scheduled Switches",
+        "type": "array",
+        "description": "Virtual switches controlled by local weekly schedule ranges.",
+        "items": {
+          "title": "Scheduled Switch",
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string",
+              "default": "Scheduled Switch",
+              "description": "Display name for this virtual scheduled switch. The accessory ID is generated from this value."
+            },
+            "defaultState": {
+              "title": "Default State",
+              "type": "boolean",
+              "default": false,
+              "description": "State outside configured ranges. During a configured range, the switch publishes the opposite state."
+            },
+            "entries": {
+              "title": "Schedule Entries",
+              "type": "array",
+              "description": "Schedule ranges for this virtual switch.",
+              "items": {
+                "title": "Schedule Entry",
+                "type": "object",
+                "properties": {
+                  "days": {
+                    "title": "Days",
+                    "type": "array",
+                    "description": "Days where this entry starts. Leave empty or omit the field to use every day.",
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+                      "enumNames": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+                    },
+                    "default": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+                  },
+                  "start": {
+                    "title": "Start Time",
+                    "type": "string",
+                    "default": "20:00",
+                    "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                    "description": "Local 24-hour time where this entry starts, formatted as HH:mm."
+                  },
+                  "end": {
+                    "title": "End Time",
+                    "type": "string",
+                    "default": "21:00",
+                    "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                    "description": "Local 24-hour time where this entry ends, formatted as HH:mm. An end time earlier than the start time creates an overnight range."
+                  }
+                },
+                "required": ["start", "end"]
+              },
+              "default": [
+                {
+                  "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+                  "start": "20:00",
+                  "end": "21:00"
+                }
+              ]
+            },
+            "enableIntervalCheck": {
+              "title": "Enable Periodic Check",
+              "type": "boolean",
+              "default": false,
+              "description": "When enabled, this device periodically re-applies the schedule between start and end triggers. When disabled, manual changes remain until the next configured schedule trigger."
+            },
+            "intervalMinutes": {
+              "title": "Interval Minutes",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1440,
+              "default": 15,
+              "description": "Periodic check interval in minutes, aligned from local 00:00. Used only when periodic checks are enabled."
+            }
+          },
+          "required": ["name", "entries"]
+        },
+        "default": []
+      },
+      "switches": {
+        "title": "Switches",
+        "type": "array",
+        "description": "Plain virtual switches with no logic behind them.",
+        "items": {
+          "title": "Switch",
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string",
+              "default": "Switch",
+              "description": "Display name for this virtual switch. The accessory ID is generated from this value."
+            },
+            "state": {
+              "title": "State",
+              "type": "boolean",
+              "default": false,
+              "description": "Start state when no persisted runtime state exists. Runtime changes are saved by the plugin."
+            }
+          },
+          "required": ["name", "state"]
+        },
+        "default": []
+      },
+      "intervalSwitches": {
+        "title": "Interval Switches",
+        "type": "array",
+        "description": "Virtual switches that flip state on a configured interval.",
+        "items": {
+          "title": "Interval Switch",
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string",
+              "default": "Interval Switch",
+              "description": "Display name for this virtual interval switch. The accessory ID is generated from this value."
+            },
+            "state": {
+              "title": "State",
+              "type": "boolean",
+              "default": false,
+              "description": "Start state when no persisted runtime state exists. Runtime changes are saved by the plugin."
+            },
+            "intervalMinutes": {
+              "title": "Interval Minutes",
+              "type": "integer",
+              "minimum": 1,
+              "default": 15,
+              "description": "Minutes between each state flip."
+            },
+            "startTime": {
+              "title": "Start Time",
+              "type": "string",
+              "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+              "description": "Optional local HH:mm anchor used to calculate interval moments. If omitted, the interval starts when the accessory becomes active."
+            }
+          },
+          "required": ["name", "state", "intervalMinutes"]
+        },
+        "default": []
+      },
+      "timerSwitches": {
+        "title": "Timer Switches",
+        "type": "array",
+        "description": "Virtual switches that return to a default state after a configured duration.",
+        "items": {
+          "title": "Timer Switch",
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string",
+              "default": "Timer Switch",
+              "description": "Display name for this virtual timer switch. The accessory ID is generated from this value."
+            },
+            "defaultState": {
+              "title": "Default State",
+              "type": "boolean",
+              "default": false,
+              "description": "Inactive state. Any different state starts the timer."
+            },
+            "durationMinutes": {
+              "title": "Duration Minutes",
+              "type": "integer",
+              "minimum": 1,
+              "default": 30,
+              "description": "Minutes before the switch returns to defaultState after being changed to the active state."
+            }
+          },
+          "required": ["name", "defaultState", "durationMinutes"]
+        },
+        "default": []
+      }
+    }
+  },
+  "layout": [
+    {
+      "type": "fieldset",
+      "title": "JSG-Switches",
+      "items": ["name", "scheduledSwitches", "switches", "intervalSwitches", "timerSwitches"]
+    }
+  ]
+}
