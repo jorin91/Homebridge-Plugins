@@ -19,7 +19,9 @@
             "id": {
               "title": "Stable ID",
               "type": "string",
-              "description": "Optional stable identifier for this virtual switch. Keep this value unchanged when renaming the device so Homebridge keeps the same accessory. Use lowercase letters, numbers, and dashes for readability."
+              "description": "Optional stable identifier for this virtual switch. When omitted, the plugin generates it from the name and writes it to Homebridge config.json. Keep it unchanged when renaming or changing settings.",
+              "minLength": 1,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
             },
             "name": {
               "title": "Name",

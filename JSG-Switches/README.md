@@ -33,13 +33,17 @@ Use one array per switch behavior:
 
 ## Accessory IDs
 
-Accessory IDs are generated from each device `name`.
+Each device supports an optional `id`.
 
-The plugin lowercases the name, converts spaces, `_`, and `-` to `-`, keeps only lowercase letters, digits, and `-`, removes other characters, collapses repeated `-`, and trims leading or trailing `-`.
+When `id` is missing, the plugin uses the same name-based ID method as earlier versions. It lowercases the name, converts spaces, `_`, and `-` to `-`, keeps only lowercase letters, digits, and `-`, removes other characters, collapses repeated `-`, and trims leading or trailing `-`.
 
-If multiple devices generate the same ID, the later devices receive deterministic suffixes such as `-1` and `-2` based on config order.
+During the first startup with this version, that fallback ID matches the already cached accessory created by an earlier version. The plugin then writes the generated ID into Homebridge `config.json`.
 
-Renaming a device changes the generated accessory ID.
+When `id` is already present, that value is authoritative. Changes to `name` or other device settings keep updating the same accessory.
+
+If multiple devices generate the same ID, later generated IDs receive deterministic suffixes such as `-1` and `-2` based on config order. Configured IDs must be unique.
+
+Changing or removing a saved `id` changes the accessory identity.
 
 ## Scheduled Switches
 
@@ -47,6 +51,7 @@ Scheduled switches live in `scheduledSwitches`.
 
 ```json
 {
+  "id": "pool-pump-schedule",
   "name": "Pool Pump Schedule",
   "defaultState": false,
   "enableIntervalCheck": false,
@@ -80,6 +85,7 @@ Plain switches live in `switches`.
 
 ```json
 {
+  "id": "manual-mode",
   "name": "Manual Mode",
   "state": false
 }
@@ -100,6 +106,7 @@ Interval switches live in `intervalSwitches`.
 
 ```json
 {
+  "id": "interval-toggle",
   "name": "Interval Toggle",
   "state": false,
   "intervalMinutes": 15,
@@ -123,6 +130,7 @@ Timer switches live in `timerSwitches`.
 
 ```json
 {
+  "id": "maintenance-timer",
   "name": "Maintenance Timer",
   "defaultState": false,
   "durationMinutes": 30
@@ -147,6 +155,7 @@ The example below shows every supported property as strict JSON.
   "name": "JSG-Switches",
   "scheduledSwitches": [
     {
+      "id": "pool-pump-schedule",
       "name": "Pool Pump Schedule",
       "defaultState": false,
       "enableIntervalCheck": false,
@@ -167,12 +176,14 @@ The example below shows every supported property as strict JSON.
   ],
   "switches": [
     {
+      "id": "manual-mode",
       "name": "Manual Mode",
       "state": false
     }
   ],
   "intervalSwitches": [
     {
+      "id": "interval-toggle",
       "name": "Interval Toggle",
       "state": false,
       "intervalMinutes": 15,
@@ -181,6 +192,7 @@ The example below shows every supported property as strict JSON.
   ],
   "timerSwitches": [
     {
+      "id": "maintenance-timer",
       "name": "Maintenance Timer",
       "defaultState": false,
       "durationMinutes": 30
@@ -197,7 +209,9 @@ Config fields:
 - `switches` contains plain virtual switches.
 - `intervalSwitches` contains interval-based virtual switches.
 - `timerSwitches` contains one-shot timer switches.
-- Device `name` values are required and are used to generate accessory IDs.
+- Device `id` is optional. Missing IDs are generated from `name`, matched to existing cached accessories, and written back to Homebridge `config.json`.
+- A saved `id` is the stable accessory identity and must remain unchanged when renaming or editing a device.
+- Device `name` values are required display names and no longer determine identity after an ID has been saved.
 - `defaultState` is used by scheduled and timer switches.
 - `state` is used by plain and interval switches as the start state when no persisted runtime state exists.
 - `enableIntervalCheck` only applies to scheduled switches.
@@ -213,10 +227,10 @@ Config fields:
 
 Install or update the global package from the current plugin release:
 
-[JSG-Switches-v0.1.4](https://github.com/jorin91/Homebridge-Plugins/releases/tag/JSG-Switches-v0.1.4)
+[JSG-Switches-v0.1.5](https://github.com/jorin91/Homebridge-Plugins/releases/tag/JSG-Switches-v0.1.5)
 
 ```powershell
-npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/JSG-Switches-v0.1.4/JSG-Switches-0.1.4.tgz"
+npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/JSG-Switches-v0.1.5/JSG-Switches-0.1.5.tgz"
 ```
 
 ### Install With Local Git

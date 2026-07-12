@@ -1,6 +1,6 @@
 {
   "name": "homebridge-jsg-scheduled-switch",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "JSGaming Homebridge platform for virtual switches that follow configurable weekly schedules.",
   "platform": "JsgScheduledSwitch",
   "displayName": "JSG Scheduled Switch",
@@ -22,7 +22,7 @@
     "homebridge": ">=1.6.0"
   },
   "scripts": {
-    "check": "node --check index.js && node --check lib/schedule.js"
+    "check": "node --check index.js && node --check lib/config-identity.js && node --check lib/schedule.js"
   },
   "license": "MIT",
   "author": {

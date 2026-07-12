@@ -32,7 +32,7 @@
               "title": "Name",
               "type": "string",
               "default": "Scheduled Switch",
-              "description": "Display name for this virtual scheduled switch. The accessory ID is generated from this value."
+              "description": "Display name for this virtual scheduled switch. The saved ID keeps accessory identity independent from this name."
             },
             "defaultState": {
               "title": "Default State",
@@ -133,6 +133,13 @@
               "maximum": 1440,
               "default": 15,
               "description": "Periodic check interval in minutes, aligned from local 00:00. Used only when periodic checks are enabled."
+            },
+            "id": {
+              "title": "Stable ID",
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "description": "Optional stable identifier for this virtual scheduled switch. When omitted, the plugin generates it from the name and writes it to Homebridge config.json. Keep it unchanged when renaming or changing settings."
             }
           },
           "required": [
@@ -154,13 +161,20 @@
               "title": "Name",
               "type": "string",
               "default": "Switch",
-              "description": "Display name for this virtual switch. The accessory ID is generated from this value."
+              "description": "Display name for this virtual switch. The saved ID keeps accessory identity independent from this name."
             },
             "state": {
               "title": "State",
               "type": "boolean",
               "default": false,
               "description": "Start state when no persisted runtime state exists. Runtime changes are saved by the plugin."
+            },
+            "id": {
+              "title": "Stable ID",
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "description": "Optional stable identifier for this virtual switch. When omitted, the plugin generates it from the name and writes it to Homebridge config.json. Keep it unchanged when renaming or changing settings."
             }
           },
           "required": [
@@ -182,7 +196,7 @@
               "title": "Name",
               "type": "string",
               "default": "Interval Switch",
-              "description": "Display name for this virtual interval switch. The accessory ID is generated from this value."
+              "description": "Display name for this virtual interval switch. The saved ID keeps accessory identity independent from this name."
             },
             "state": {
               "title": "State",
@@ -202,6 +216,13 @@
               "type": "string",
               "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
               "description": "Optional local HH:mm anchor used to calculate interval moments. If omitted, the interval starts when the accessory becomes active."
+            },
+            "id": {
+              "title": "Stable ID",
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "description": "Optional stable identifier for this virtual interval switch. When omitted, the plugin generates it from the name and writes it to Homebridge config.json. Keep it unchanged when renaming or changing settings."
             }
           },
           "required": [
@@ -224,7 +245,7 @@
               "title": "Name",
               "type": "string",
               "default": "Timer Switch",
-              "description": "Display name for this virtual timer switch. The accessory ID is generated from this value."
+              "description": "Display name for this virtual timer switch. The saved ID keeps accessory identity independent from this name."
             },
             "defaultState": {
               "title": "Default State",
@@ -238,6 +259,13 @@
               "minimum": 1,
               "default": 30,
               "description": "Minutes before the switch returns to defaultState after being changed to the active state."
+            },
+            "id": {
+              "title": "Stable ID",
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "description": "Optional stable identifier for this virtual timer switch. When omitted, the plugin generates it from the name and writes it to Homebridge config.json. Keep it unchanged when renaming or changing settings."
             }
           },
           "required": [

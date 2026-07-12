@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { ensureStableDeviceIds } = require('./lib/config-identity');
 const schedule = require('./lib/schedule');
 
 const PLUGIN_NAME = 'homebridge-jsg-switches';
@@ -76,6 +77,16 @@ class JsgSwitchesPlatform {
   }
 
   syncConfiguredDevices() {
+    ensureStableDeviceIds({
+      config: this.config,
+      api: this.api,
+      log: this.log,
+      platformName: PLATFORM_NAME,
+      collections: DEVICE_COLLECTIONS,
+      normalizeId: createBaseId,
+      resolveGeneratedId: this.resolveGeneratedDeviceId.bind(this)
+    });
+
     const configuredDevices = normalizePlatformConfig(this.config, this.log);
     const configuredUuids = new Set();
 
@@ -103,6 +114,10 @@ class JsgSwitchesPlatform {
       }
 
       this.startOrUpdateDevice(accessory, deviceConfig);
+
+      if (typeof this.api.updatePlatformAccessories === 'function') {
+        this.api.updatePlatformAccessories([accessory]);
+      }
     });
 
     Array.from(this.cachedAccessories.entries()).forEach(([uuid, accessory]) => {
@@ -121,6 +136,24 @@ class JsgSwitchesPlatform {
       this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
       writeInfo(this.log, `Removed switch '${accessory.displayName || uuid}'.`);
     });
+  }
+
+  /**
+   * <summary>
+   * Resolves a generated name-based identifier against the exact UUID format
+   * used by earlier plugin versions. When that UUID is already cached, its
+   * stored device ID is reused and then written to config.json. This preserves
+   * existing accessories during the first update that introduces persisted IDs.
+   * </summary>
+   * @param {string} generatedId Identifier produced by the legacy name method.
+   * @returns {string} Existing cached identifier or the unchanged generated ID.
+   */
+  resolveGeneratedDeviceId(generatedId) {
+    const legacyUuid = this.api.hap.uuid.generate(`${PLUGIN_NAME}:${generatedId}`);
+    const accessory = this.cachedAccessories.get(legacyUuid);
+    const cachedId = accessory && accessory.context && accessory.context.deviceId;
+
+    return cachedId ? createBaseId(cachedId, generatedId) : generatedId;
   }
 
   startOrUpdateDevice(accessory, deviceConfig) {
@@ -510,7 +543,7 @@ function normalizePlatformConfig(config, log) {
     });
   });
 
-  return assignGeneratedIds(rawDevices);
+  return removeDuplicateIds(rawDevices, log);
 }
 
 function normalizeDeviceConfig(rawDevice, collection, index, log) {
@@ -523,6 +556,7 @@ function normalizeDeviceConfig(rawDevice, collection, index, log) {
   const config = {
     type: collection.type,
     fallbackId: collection.fallbackId,
+    id: createBaseId(rawDevice.id || name, collection.fallbackId),
     name
   };
 
@@ -555,17 +589,27 @@ function normalizeDeviceConfig(rawDevice, collection, index, log) {
   return null;
 }
 
-function assignGeneratedIds(devices) {
-  const baseCounts = new Map();
+/**
+ * <summary>
+ * Removes duplicate configured identifiers after device normalization. Explicit
+ * IDs remain authoritative, so a later duplicate is skipped with a warning
+ * instead of being silently changed into a different accessory identity.
+ * </summary>
+ * @param {Array<object>} devices Normalized device configurations.
+ * @param {Function|object} log Homebridge logger used for duplicate warnings.
+ * @returns {Array<object>} Device configurations with unique IDs.
+ */
+function removeDuplicateIds(devices, log) {
+  const usedIds = new Set();
 
-  return devices.map((device) => {
-    const baseId = createBaseId(device.name, device.fallbackId);
-    const count = baseCounts.get(baseId) || 0;
-    const id = count === 0 ? baseId : `${baseId}-${count}`;
+  return devices.filter((device) => {
+    if (usedIds.has(device.id)) {
+      writeWarning(log, `${PLATFORM_NAME} device '${device.name}' uses duplicate id '${device.id}' and was skipped.`);
+      return false;
+    }
 
-    baseCounts.set(baseId, count + 1);
-
-    return Object.assign({}, device, { id });
+    usedIds.add(device.id);
+    return true;
   });
 }
 

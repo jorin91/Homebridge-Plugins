@@ -1,5 +1,6 @@
 'use strict';
 
+const { ensureStableDeviceIds } = require('./lib/config-identity');
 const schedule = require('./lib/schedule');
 
 const PLUGIN_NAME = 'homebridge-jsg-scheduled-switch';
@@ -8,6 +9,14 @@ const DEFAULT_DEVICE_NAME = 'Scheduled Switch';
 const DEFAULT_INTERVAL_MINUTES = 15;
 const MIN_INTERVAL_MINUTES = 1;
 const MAX_INTERVAL_MINUTES = 1440;
+const DEVICE_COLLECTIONS = Object.freeze([
+  {
+    key: 'devices',
+    defaultName: DEFAULT_DEVICE_NAME,
+    fallbackId: 'jsg-scheduled-switch',
+    missingNameIdPrefix: 'device'
+  }
+]);
 
 let Service;
 let Characteristic;
@@ -80,6 +89,16 @@ class ScheduledSwitchPlatform {
    * </summary>
    */
   syncConfiguredDevices() {
+    ensureStableDeviceIds({
+      config: this.config,
+      api: this.api,
+      log: this.log,
+      platformName: PLATFORM_NAME,
+      collections: DEVICE_COLLECTIONS,
+      normalizeId: normalizeIdentifier,
+      resolveGeneratedId: this.resolveGeneratedDeviceId.bind(this)
+    });
+
     const configuredDevices = normalizeDeviceConfigs(this.config, this.log);
     const configuredUuids = new Set();
 
@@ -98,9 +117,18 @@ class ScheduledSwitchPlatform {
 
       accessory.context.deviceId = deviceConfig.id;
       accessory.context.deviceConfig = deviceConfig;
-      accessory.displayName = deviceConfig.name;
+
+      if (typeof accessory.updateDisplayName === 'function') {
+        accessory.updateDisplayName(deviceConfig.name);
+      } else {
+        accessory.displayName = deviceConfig.name;
+      }
 
       this.startOrUpdateDevice(accessory, deviceConfig);
+
+      if (typeof this.api.updatePlatformAccessories === 'function') {
+        this.api.updatePlatformAccessories([accessory]);
+      }
     });
 
     Array.from(this.cachedAccessories.entries()).forEach(([uuid, accessory]) => {
@@ -119,6 +147,24 @@ class ScheduledSwitchPlatform {
       this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
       writeInfo(this.log, `Removed scheduled switch '${accessory.displayName || uuid}'.`);
     });
+  }
+
+  /**
+   * <summary>
+   * Resolves a generated name-based identifier against the exact UUID format
+   * used by earlier plugin versions. When that UUID is already cached, its
+   * stored device ID is reused and then written to config.json. This preserves
+   * existing accessories during the first update that introduces persisted IDs.
+   * </summary>
+   * @param {string} generatedId Identifier produced by the legacy name method.
+   * @returns {string} Existing cached identifier or the unchanged generated ID.
+   */
+  resolveGeneratedDeviceId(generatedId) {
+    const legacyUuid = this.api.hap.uuid.generate(`${PLUGIN_NAME}:${generatedId}`);
+    const accessory = this.cachedAccessories.get(legacyUuid);
+    const cachedId = accessory && accessory.context && accessory.context.deviceId;
+
+    return cachedId ? normalizeIdentifier(cachedId) : generatedId;
   }
 
   /**

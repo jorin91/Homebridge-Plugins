@@ -88,8 +88,9 @@ Config fields:
 
 - `platform` must be `JsgScheduledSwitch`.
 - `devices` contains the virtual scheduled switches this platform should create.
-- `id` is optional but recommended for stable accessory identity.
-- `name` is the display name for the virtual switch.
+- `id` is optional. When missing, the plugin generates it from `name`, matches the existing cached accessory, and writes it back to Homebridge `config.json`.
+- When `id` is present, it is the stable accessory identity used for every later update.
+- `name` is the display name for the virtual switch and can change without replacing the accessory after an ID has been saved.
 - `inverseState` false means ranges are on. True means ranges are off and outside ranges is on.
 - `enableIntervalCheck` re-applies schedule state on the interval grid when enabled.
 - `intervalMinutes` controls the optional interval check size.
@@ -100,7 +101,8 @@ Config fields:
 
 - Valid day values are `mon`, `tue`, `wed`, `thu`, `fri`, `sat`, and `sun`.
 - `entries[].start` and `entries[].end` must use strict local `HH:mm` 24-hour time.
-- `id` should stay stable once the accessory exists. Changing it creates a new accessory identity.
+- Existing configs without `id` use the same name-based fallback as earlier plugin versions, so the current dummy switch is recognized before its ID is written back.
+- A saved `id` should stay stable. Changing or removing it creates a new accessory identity.
 - The plugin only reads `devices`. Homebridge UI is normalized by the plugin settings UI so an empty config keeps `devices: []` visible.
 
 ## Installation And Updates
@@ -109,10 +111,10 @@ Config fields:
 
 Install or update the global package from the current plugin release:
 
-[homebridge-jsg-scheduled-switch-v0.1.4](https://github.com/jorin91/Homebridge-Plugins/releases/tag/homebridge-jsg-scheduled-switch-v0.1.4)
+[homebridge-jsg-scheduled-switch-v0.1.5](https://github.com/jorin91/Homebridge-Plugins/releases/tag/homebridge-jsg-scheduled-switch-v0.1.5)
 
 ```powershell
-npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/homebridge-jsg-scheduled-switch-v0.1.4/homebridge-jsg-scheduled-switch-0.1.4.tgz"
+npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/homebridge-jsg-scheduled-switch-v0.1.5/homebridge-jsg-scheduled-switch-0.1.5.tgz"
 ```
 
 ### Install With Local Git
