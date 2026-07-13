@@ -94,7 +94,7 @@
                 "W/m²",
                 "WMO"
               ],
-              "description": "Canonical source unit or explicit wind-direction conversion that selects the plugin's HomeKit characteristic metadata, normalization, and neutral fallback. Use 1 for dimensionless, blank, or undefined Open-Meteo units; ms covers generationtime_ms; s covers both s and seconds; WMO covers Open-Meteo wmo code values. Wind directions support ° directly, compass16 text directly, compass16->° conversion, and °->compass16 conversion."
+              "description": "Canonical source unit or explicit wind-direction conversion that selects the plugin's HomeKit characteristic metadata, normalization, and neutral fallback. Use 1 for dimensionless values, ms for milliseconds, s for seconds, and WMO for numeric WMO present-weather codes. Wind directions support ° directly, compass16 text directly, compass16->° conversion, and °->compass16 conversion."
             },
             "path": {
               "title": "Source Path",

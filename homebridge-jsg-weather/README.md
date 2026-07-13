@@ -81,37 +81,37 @@ Config fields:
 
 Each mapping requires exactly `name`, `unit`, and `path`. IDs, formatting rules, transforms, thresholds, fallbacks, and automation settings are not configurable mapping properties. The plugin owns validation, normalization, characteristic metadata, and the neutral value for every supported unit.
 
-Supported unit keys are deliberately compact and match the units returned by Open-Meteo or describe a built-in wind-direction conversion:
+Supported unit keys are deliberately compact and represent source values or a built-in wind-direction conversion:
 
-- `1` for dimensionless values and values whose Open-Meteo unit is blank or `undefined`
+- `1` for dimensionless values
 - `%`
 - `°` for a numeric direction in degrees without conversion
 - `compass16` for a 16-point compass string without changing its representation
 - `compass16->°` for converting a 16-point compass string to its sector-center angle
 - `°->compass16` for converting degrees to the canonical Dutch 16-point compass notation
 - `°C`
-- `°F`, available when Open-Meteo is configured for Fahrenheit output
+- `°F`
 - `cm`
 - `GGDc`
 - `h`
 - `hPa`
-- `in`, available when Open-Meteo is configured for inch precipitation output
+- `in`
 - `iso8601`
 - `J/kg`
 - `kg/m²`
 - `km/h`
-- `kn`, available when Open-Meteo is configured for knot wind output
+- `kn`
 - `kPa`
 - `m`
 - `m/s`
 - `m³/m³`
 - `MJ/m²`
 - `mm`
-- `mph`, available when Open-Meteo is configured for miles-per-hour wind output
-- `ms`, used for Open-Meteo `generationtime_ms`
-- `s`, used for Open-Meteo values reported as either `s` or `seconds`
+- `mph`
+- `ms` for milliseconds
+- `s` for seconds
 - `W/m²`
-- `WMO`, used for Open-Meteo `wmo code` weather values
+- `WMO` for numeric WMO present-weather codes
 
 The complete canonical Dutch compass sequence, clockwise from north, is `N`, `NNO`, `NO`, `ONO`, `O`, `OZO`, `ZO`, `ZZO`, `Z`, `ZZW`, `ZW`, `WZW`, `W`, `WNW`, `NW`, `NNW`. `NWW` is not a valid 16-point direction; the correct west-northwest abbreviation is `WNW`.
 
@@ -139,10 +139,10 @@ All of these values remain HomeKit characteristics, but Apple's Home app may not
 
 Install or update the global package from the current plugin release:
 
-[homebridge-jsg-weather-v0.1.0](https://github.com/jorin91/Homebridge-Plugins/releases/tag/homebridge-jsg-weather-v0.1.0)
+[homebridge-jsg-weather-v0.1.1](https://github.com/jorin91/Homebridge-Plugins/releases/tag/homebridge-jsg-weather-v0.1.1)
 
 ```powershell
-npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/homebridge-jsg-weather-v0.1.0/homebridge-jsg-weather-0.1.0.tgz"
+npm install -g "https://github.com/jorin91/Homebridge-Plugins/releases/download/homebridge-jsg-weather-v0.1.1/homebridge-jsg-weather-0.1.1.tgz"
 ```
 
 ### Install With Local Git

@@ -50,7 +50,7 @@ function normalizeInteger(value) {
  * <summary>
  * Normalizes an ISO 8601 source value while retaining the provider's original timezone and precision. Only a
  * non-empty string recognized by JavaScript's ISO-compatible date parser is accepted. The value is not converted
- * to UTC because a displayed local Open-Meteo time must keep the meaning selected by the source timezone.
+ * to UTC because a displayed local source time must keep the meaning selected by the source timezone.
  * </summary>
  * @param {unknown} value Raw date or date-time value resolved from the configured source path.
  * @returns {string} Trimmed original ISO 8601 text.

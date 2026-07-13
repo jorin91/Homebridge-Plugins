@@ -1,6 +1,6 @@
 {
   "name": "homebridge-jsg-weather",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "JSGaming Homebridge platform that maps named weather values from configurable data sources onto one weather accessory.",
   "platform": "JsgWeather",
   "displayName": "JSG Weather",
