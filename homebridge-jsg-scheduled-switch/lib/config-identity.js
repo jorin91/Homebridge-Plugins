@@ -3,13 +3,15 @@
 const fs = require('fs');
 const path = require('path');
 
+const IDENTITY_SCHEMA_VERSION = 1;
+
 /**
  * <summary>
- * Assigns every configured device a stable unique identifier before Homebridge
- * reconciles cached accessories. Existing configured identifiers are normalized
- * and remain authoritative. Missing identifiers use the shared
- * jsg-plugin-device format and are persisted to Homebridge config.json so later
- * display-name or behavior changes keep using the same accessory identity.
+ * Resolves every configured base ID before Homebridge reconciles accessories.
+ * Present values are canonically normalized and remain authoritative. Only a
+ * genuinely absent property is generated from its owning device name. Changed
+ * values are persisted before reconciliation so later display-name and behavior
+ * changes continue to use the same logical identity.
  * </summary>
  * @param {object} options Identity preparation options.
  * @param {object} options.config Runtime platform config supplied by Homebridge.
@@ -18,19 +20,33 @@ const path = require('path');
  * @param {string} options.pluginName Package-level Homebridge plugin name.
  * @param {string} options.platformName Platform alias stored in config.json.
  * @param {Array<object>} options.collections Device array definitions.
- * @returns {boolean} True when one or more runtime config identifiers changed.
+ * @returns {object} Resolution state, invalid-device tracking, and persistence outcome.
  */
 function ensureStableDeviceIds(options) {
   const config = options && options.config;
   const collections = options && options.collections;
+  const result = {
+    didChange: false,
+    hasErrors: false,
+    invalidDevices: new WeakSet(),
+    persistenceSucceeded: true
+  };
 
   if (!config || typeof config !== 'object' || !Array.isArray(collections)) {
-    return false;
+    result.hasErrors = true;
+    return result;
+  }
+
+  const pluginNamespace = createEffectivePluginNamespace(options.pluginName);
+
+  if (!pluginNamespace) {
+    result.hasErrors = true;
+    writeWarning(options.log, `${options.platformName} cannot resolve a valid effective plugin namespace.`);
+    return result;
   }
 
   const usedIds = new Set();
-  const deviceRecords = [];
-  let didChange = false;
+  const generatedRecords = [];
 
   collections.forEach((collection) => {
     const devices = config[collection.key];
@@ -44,141 +60,118 @@ function ensureStableDeviceIds(options) {
         return;
       }
 
-      const configuredId = normalizeOptionalIdentifier(device.id);
-      const name = normalizeDeviceName(device.name, collection.defaultName, index);
+      if (!Object.prototype.hasOwnProperty.call(device, 'id')) {
+        generatedRecords.push({
+          collection,
+          device,
+          index
+        });
+        return;
+      }
 
-      deviceRecords.push({
-        collection,
-        configuredId,
-        device,
-        index,
-        name
-      });
+      const configuredId = resolveConfiguredIdentity(device.id);
 
-      if (!configuredId) {
+      if (!configuredId || !isValidBaseIdentityPath(configuredId, pluginNamespace)) {
+        result.hasErrors = true;
+        result.invalidDevices.add(device);
+        writeWarning(
+          options.log,
+          `${options.platformName} ${collection.key} item ${index + 1} has an invalid id. The existing id property must contain a usable identity path.`
+        );
+        return;
+      }
+
+      if (device.id !== configuredId) {
+        device.id = configuredId;
+        result.didChange = true;
+      }
+
+      if (usedIds.has(configuredId)) {
+        result.hasErrors = true;
+        result.invalidDevices.add(device);
+        writeWarning(
+          options.log,
+          `${options.platformName} ${collection.key} item ${index + 1} uses duplicate id '${configuredId}' and was skipped.`
+        );
         return;
       }
 
       usedIds.add(configuredId);
-
-      if (device.id !== configuredId) {
-        device.id = configuredId;
-        didChange = true;
-      }
     });
   });
 
-  deviceRecords.forEach((record) => {
-    if (record.configuredId) {
+  generatedRecords.forEach((record) => {
+    const generatedId = createGeneratedIdentifier(record.device.name);
+
+    if (!generatedId || !isValidBaseIdentityPath(generatedId, pluginNamespace)) {
+      result.hasErrors = true;
+      result.invalidDevices.add(record.device);
+      writeWarning(
+        options.log,
+        `${options.platformName} ${record.collection.key} item ${record.index + 1} cannot generate an id because its name does not produce a usable identity path.`
+      );
       return;
     }
 
-    const generatedId = createGeneratedIdentifier(
-      options.pluginName,
-      record.name,
-      record.collection.fallbackId
-    );
     const stableId = reserveUniqueIdentifier(generatedId, usedIds);
-
-    if (record.device.id !== stableId) {
-      record.device.id = stableId;
-      didChange = true;
-    }
+    record.device.id = stableId;
+    result.didChange = true;
   });
 
-  if (didChange) {
-    persistDeviceIds(options);
+  if (result.didChange) {
+    result.persistenceSucceeded = persistDeviceIds(options);
+
+    if (!result.persistenceSucceeded) {
+      result.hasErrors = true;
+    }
   }
 
-  return didChange;
+  return result;
 }
 
 /**
  * <summary>
- * Normalizes a user-supplied identifier only when it contains a meaningful
- * value. Missing values remain absent so the plugin-prefixed automatic fallback
- * can create and persist the initial identity.
+ * Canonicalizes a configured identity field without invoking generation.
+ * Configuration values must be strings and must produce a non-empty canonical
+ * path whose structural colon separators do not create empty segments.
  * </summary>
  * @param {*} value Configured identifier value.
- * @returns {string|null} Normalized configured identifier or null when absent.
+ * @returns {string|null} Canonical configured path or null when invalid.
  */
-function normalizeOptionalIdentifier(value) {
-  if (typeof value !== 'string' || !value.trim()) {
+function resolveConfiguredIdentity(value) {
+  if (typeof value !== 'string') {
     return null;
   }
 
-  return normalizeIdentifier(value) || null;
+  return normalizeIdentityPath(value);
 }
 
 /**
  * <summary>
- * Creates an automatic identifier using the shared
- * jsg-plugin-name-device-name contract. Packaging and owner prefixes are removed
- * from the plugin segment so jsg appears once at the start of the generated ID.
+ * Generates the initial base ID from the owning device name. The generated value
+ * contains only the base path because the plugin namespace is code-owned and is
+ * added later when the complete Homebridge UUID seed is assembled.
  * </summary>
- * @param {string} pluginName Package-level Homebridge plugin name.
- * @param {string} deviceName Configured or fallback accessory display name.
- * @param {string} fallbackDeviceName Collection fallback identifier.
- * @returns {string} Normalized generated identifier.
+ * @param {*} deviceName Configured owning device name.
+ * @returns {string|null} Canonical generated base ID or null when unusable.
  */
-function createGeneratedIdentifier(pluginName, deviceName, fallbackDeviceName) {
-  const pluginSegment = normalizePluginSegment(pluginName);
-  const deviceSegment = normalizeIdentifier(deviceName) ||
-    normalizeIdentifier(fallbackDeviceName) ||
-    'accessory';
-
-  return normalizeIdentifier(`jsg-${pluginSegment}-${deviceSegment}`);
-}
-
-/**
- * <summary>
- * Derives the plugin segment used in automatically generated accessory IDs.
- * Npm scopes are removed first. Repeated leading homebridge packaging prefixes
- * and JSG owner prefixes are then removed to keep the resulting prefix concise.
- * </summary>
- * @param {string} pluginName Package-level Homebridge plugin name.
- * @returns {string} Normalized plugin segment without packaging or owner prefix.
- */
-function normalizePluginSegment(pluginName) {
-  const rawName = String(pluginName || '');
-  const unscopedName = rawName.includes('/') ? rawName.split('/').pop() : rawName;
-  const segments = normalizeIdentifier(unscopedName).split('-').filter(Boolean);
-
-  while (segments[0] === 'homebridge' || segments[0] === 'jsg') {
-    segments.shift();
+function createGeneratedIdentifier(deviceName) {
+  if (typeof deviceName !== 'string' || !deviceName.trim()) {
+    return null;
   }
 
-  return segments.join('-') || 'plugin';
+  return normalizeIdentityPath(deviceName);
 }
 
 /**
  * <summary>
- * Normalizes public accessory identifiers to lowercase ASCII. Whitespace becomes
- * a hyphen. Characters outside lowercase letters, digits, and hyphens are
- * removed. Repeated, leading, and trailing hyphens are removed from the result.
+ * Reserves a unique generated base ID across the combined device domain.
+ * Deterministic numeric suffixes are appended to the final path segment while
+ * explicit configured IDs retain priority.
  * </summary>
- * @param {*} value Identifier source value.
- * @returns {string} Normalized identifier or an empty string when no valid content remains.
- */
-function normalizeIdentifier(value) {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/(^-|-$)/g, '');
-}
-
-/**
- * <summary>
- * Reserves a unique identifier across every device array owned by a platform.
- * Deterministic numeric suffixes keep duplicate generated identifiers valid while
- * preserving the existing first-match behavior for already configured devices.
- * </summary>
- * @param {string} baseId Preferred normalized identifier.
- * @param {Set<string>} usedIds Identifiers already reserved during this startup.
- * @returns {string} Unique identifier for the current device.
+ * @param {string} baseId Preferred canonical generated base ID.
+ * @param {Set<string>} usedIds IDs already reserved during this startup.
+ * @returns {string} Unique canonical generated base ID.
  */
 function reserveUniqueIdentifier(baseId, usedIds) {
   let candidate = baseId;
@@ -195,23 +188,260 @@ function reserveUniqueIdentifier(baseId, usedIds) {
 
 /**
  * <summary>
- * Produces the same fallback display name used by runtime config normalization.
- * Matching these defaults ensures first-run identifier persistence does not alter
- * the UUID that older plugin versions would have generated.
+ * Canonicalizes one complete identity path. Colons remain structural separators.
+ * Every segment is lowercased, filtered to ASCII letters, digits, and hyphens,
+ * then stripped of repeated and edge hyphens. Empty segments are invalid.
  * </summary>
- * @param {*} value Configured display name.
- * @param {string} defaultName Collection-specific default display name.
- * @param {number} index Zero-based collection index.
- * @returns {string} Configured or numbered fallback display name.
+ * @param {*} value Identity path source.
+ * @returns {string|null} Canonical identity path or null when invalid.
  */
-function normalizeDeviceName(value, defaultName, index) {
-  if (typeof value === 'string' && value.trim()) {
-    return value.trim();
+function normalizeIdentityPath(value) {
+  const filteredValue = String(value === undefined || value === null ? '' : value)
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-:]/g, '');
+  const segments = filteredValue.split(':').map((segment) => segment
+    .replace(/-+/g, '-')
+    .replace(/(^-|-$)/g, ''));
+
+  if (!segments.length || segments.some((segment) => !segment)) {
+    return null;
   }
 
-  return `${defaultName} ${index + 1}`;
+  return segments.join(':');
 }
 
+/**
+ * <summary>
+ * Canonicalizes an atomic identity component and rejects structural paths.
+ * Plugin namespaces and code-owned type values use this stricter formatter.
+ * </summary>
+ * @param {*} value Atomic identity component source.
+ * @returns {string|null} Canonical single segment or null when invalid.
+ */
+function normalizeIdentitySegment(value) {
+  const normalized = normalizeIdentityPath(value);
+
+  if (!normalized || normalized.includes(':')) {
+    return null;
+  }
+
+  return normalized;
+}
+
+/**
+ * <summary>
+ * Derives the code-owned effective plugin namespace. A normalized plugin name
+ * that already contains jsg is used directly. Other plugin names receive one
+ * jsg prefix before the candidate is normalized again.
+ * </summary>
+ * @param {*} pluginName Package-level Homebridge plugin name.
+ * @returns {string|null} Canonical effective namespace or null when invalid.
+ */
+function createEffectivePluginNamespace(pluginName) {
+  const normalizedPluginName = normalizeIdentitySegment(pluginName);
+
+  if (!normalizedPluginName) {
+    return null;
+  }
+
+  const candidate = normalizedPluginName.includes('jsg')
+    ? normalizedPluginName
+    : `jsg-${normalizedPluginName}`;
+
+  return normalizeIdentitySegment(candidate);
+}
+
+/**
+ * <summary>
+ * Validates that a canonical configured base path owns only the base hierarchy.
+ * A base path may contain child subsegments, but its first segment may not repeat
+ * the code-owned effective plugin namespace from the complete runtime seed.
+ * </summary>
+ * @param {*} baseId Canonical configured base identity path.
+ * @param {*} effectivePluginNamespace Canonical code-owned namespace.
+ * @returns {boolean} True when the path is valid for a base ID field.
+ */
+function isValidBaseIdentityPath(baseId, effectivePluginNamespace) {
+  const canonicalBaseId = normalizeIdentityPath(baseId);
+  const namespace = normalizeIdentitySegment(effectivePluginNamespace);
+
+  return Boolean(
+    canonicalBaseId &&
+    namespace &&
+    canonicalBaseId.split(':')[0] !== namespace
+  );
+}
+
+/**
+ * <summary>
+ * Builds the complete singleton accessory identity from the code-owned namespace
+ * and configured base path. Every switch config in these plugins represents one
+ * logical accessory, so type and extra parts are intentionally omitted.
+ * </summary>
+ * @param {*} pluginName Package-level Homebridge plugin name.
+ * @param {*} baseId Canonical configured base identity path.
+ * @returns {object|null} Structured identity and complete UUID seed or null.
+ */
+function createAccessoryIdentity(pluginName, baseId) {
+  const namespace = createEffectivePluginNamespace(pluginName);
+  const canonicalBaseId = normalizeIdentityPath(baseId);
+
+  if (!namespace || !canonicalBaseId || !isValidBaseIdentityPath(canonicalBaseId, namespace)) {
+    return null;
+  }
+
+  const seed = normalizeIdentityPath(`${namespace}:${canonicalBaseId}`);
+
+  if (!seed) {
+    return null;
+  }
+
+  return {
+    namespace,
+    version: IDENTITY_SCHEMA_VERSION,
+    baseId: canonicalBaseId,
+    type: null,
+    parts: [],
+    seed
+  };
+}
+
+/**
+ * <summary>
+ * Reads structured logical identity metadata from a cached Homebridge accessory.
+ * The raw object is returned so reconciliation can inspect supported older
+ * identity values before replacing context with the current canonical shape.
+ * </summary>
+ * @param {object} accessory Cached Homebridge accessory.
+ * @returns {object|null} Stored structured identity context or null.
+ */
+function readAccessoryIdentityContext(accessory) {
+  const identity = accessory && accessory.context && accessory.context.identity;
+
+  return identity && typeof identity === 'object' && !Array.isArray(identity)
+    ? identity
+    : null;
+}
+
+/**
+ * <summary>
+ * Checks whether cached structured context exactly identifies the current
+ * singleton accessory. Exact comparison keeps current identity matching ahead
+ * of UUID and supported legacy fallback candidates.
+ * </summary>
+ * @param {object} accessory Cached Homebridge accessory.
+ * @param {object} identity Current structured accessory identity.
+ * @returns {boolean} True when the cached context is an exact current match.
+ */
+function matchesAccessoryIdentityContext(accessory, identity) {
+  const stored = readAccessoryIdentityContext(accessory);
+
+  return Boolean(
+    stored &&
+    identity &&
+    stored.namespace === identity.namespace &&
+    stored.version === identity.version &&
+    stored.baseId === identity.baseId &&
+    Object.prototype.hasOwnProperty.call(stored, 'type') &&
+    stored.type === null &&
+    Array.isArray(stored.parts) &&
+    stored.parts.length === 0
+  );
+}
+
+/**
+ * <summary>
+ * Writes the current structured singleton identity into cached accessory
+ * context. The accessory keeps its actual Homebridge UUID even when it was found
+ * through a supported legacy seed.
+ * </summary>
+ * @param {object} accessory Homebridge accessory being created or retained.
+ * @param {object} identity Current structured accessory identity.
+ * @returns {boolean} True when the stored structured context changed.
+ */
+function writeAccessoryIdentityContext(accessory, identity) {
+  if (!accessory || !identity) {
+    return false;
+  }
+
+  if (!accessory.context || typeof accessory.context !== 'object') {
+    accessory.context = {};
+  }
+
+  const didChange = !matchesAccessoryIdentityContext(accessory, identity);
+  accessory.context.identity = {
+    namespace: identity.namespace,
+    version: identity.version,
+    baseId: identity.baseId,
+    type: null,
+    parts: []
+  };
+
+  return didChange;
+}
+
+/**
+ * <summary>
+ * Reproduces the flat identifier normalizer used by version 0.1.6. It is used
+ * only to locate cached accessories and plugin state after canonical path rules
+ * begin preserving structural colons.
+ * </summary>
+ * @param {*} value Previous identifier source.
+ * @returns {string|null} Previous flat identifier or null when unusable.
+ */
+function normalizeLegacyFlatIdentifier(value) {
+  const normalized = String(value === undefined || value === null ? '' : value)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
+  return normalized || null;
+}
+
+/**
+ * <summary>
+ * Reproduces the plugin-prefixed automatic ID created by version 0.1.6. This
+ * value is a legacy lookup candidate only and is never generated for new config.
+ * </summary>
+ * @param {*} pluginName Package-level Homebridge plugin name.
+ * @param {*} deviceName Previous owning device name.
+ * @param {*} fallbackDeviceName Previous collection fallback value.
+ * @returns {string|null} Previous generated base ID or null when unusable.
+ */
+function createLegacyGeneratedIdentifier(pluginName, deviceName, fallbackDeviceName) {
+  const pluginSegment = normalizeLegacyPluginSegment(pluginName);
+  const deviceSegment = normalizeLegacyFlatIdentifier(deviceName) ||
+    normalizeLegacyFlatIdentifier(fallbackDeviceName) ||
+    'accessory';
+
+  return normalizeLegacyFlatIdentifier(`jsg-${pluginSegment}-${deviceSegment}`);
+}
+
+/**
+ * <summary>
+ * Reproduces the concise plugin segment embedded in version 0.1.6 generated IDs.
+ * Npm scope, repeated homebridge packaging prefixes, and leading JSG owner
+ * prefixes are removed in the same order as that release.
+ * </summary>
+ * @param {*} pluginName Package-level Homebridge plugin name.
+ * @returns {string} Previous concise plugin segment.
+ */
+function normalizeLegacyPluginSegment(pluginName) {
+  const rawName = String(pluginName || '');
+  const unscopedName = rawName.includes('/') ? rawName.split('/').pop() : rawName;
+  const normalized = normalizeLegacyFlatIdentifier(unscopedName) || '';
+  const segments = normalized.split('-').filter(Boolean);
+
+  while (segments[0] === 'homebridge' || segments[0] === 'jsg') {
+    segments.shift();
+  }
+
+  return segments.join('-') || 'plugin';
+}
 /**
  * <summary>
  * Copies generated or normalized runtime identifiers into the matching
@@ -410,7 +640,16 @@ function writeWarning(log, message) {
 }
 
 module.exports = {
+  createAccessoryIdentity,
+  createEffectivePluginNamespace,
   createGeneratedIdentifier,
+  createLegacyGeneratedIdentifier,
   ensureStableDeviceIds,
-  normalizeIdentifier
+  isValidBaseIdentityPath,
+  matchesAccessoryIdentityContext,
+  normalizeIdentityPath,
+  normalizeIdentitySegment,
+  normalizeLegacyFlatIdentifier,
+  readAccessoryIdentityContext,
+  writeAccessoryIdentityContext
 };

@@ -19,7 +19,7 @@
             "id": {
               "title": "Stable ID",
               "type": "string",
-              "description": "Optional stable identifier for this virtual switch. A stored JSON value is authoritative after normalization and is rewritten only when normalization changes it. A manual value does not need that prefix. When omitted, the plugin generates jsg-scheduled-switch-{normalized-name} and stores it.",
+              "description": "Optional stable base identity path. When present, it is authoritative after canonical normalization and must not be empty, invalid, or begin with the code-owned plugin namespace. Colons delimit structural base subsegments. When absent, the plugin generates and stores the normalized device name. The plugin namespace is added only to the runtime UUID seed.",
               "minLength": 1
             },
             "name": {

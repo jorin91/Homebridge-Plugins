@@ -1,6 +1,15 @@
 'use strict';
 
-const { createGeneratedIdentifier, ensureStableDeviceIds, normalizeIdentifier } = require('./lib/config-identity');
+const {
+  createAccessoryIdentity,
+  createLegacyGeneratedIdentifier,
+  ensureStableDeviceIds,
+  matchesAccessoryIdentityContext,
+  normalizeIdentityPath,
+  normalizeLegacyFlatIdentifier,
+  readAccessoryIdentityContext,
+  writeAccessoryIdentityContext
+} = require('./lib/config-identity');
 const schedule = require('./lib/schedule');
 
 const PLUGIN_NAME = 'homebridge-jsg-scheduled-switch';
@@ -83,33 +92,46 @@ class ScheduledSwitchPlatform {
 
   /**
    * <summary>
-   * Reconciles Homebridge cached accessories against the current `devices`
-   * config. Matching devices are updated in place, missing devices are created,
-   * and stale cached accessories are unregistered from Homebridge.
+   * Resolves and persists canonical base IDs before reconciling the current
+   * `devices` config against Homebridge cache. Valid devices are retained or
+   * created in place. Stale cleanup runs only when every identity is valid and
+   * unambiguous, preventing an editing error from removing accessories.
    * </summary>
    */
   syncConfiguredDevices() {
     const legacyIdentityCandidates = collectLegacyIdentityCandidates(this.config);
-
-    ensureStableDeviceIds({
+    const identityResolution = ensureStableDeviceIds({
       config: this.config,
       api: this.api,
       log: this.log,
+      pluginName: PLUGIN_NAME,
       platformName: PLATFORM_NAME,
-      collections: DEVICE_COLLECTIONS,
-      pluginName: PLUGIN_NAME
+      collections: DEVICE_COLLECTIONS
     });
 
-    const configuredDevices = normalizeDeviceConfigs(this.config, this.log, legacyIdentityCandidates);
+    if (!identityResolution.persistenceSucceeded) {
+      writeWarning(this.log, `${PLATFORM_NAME} skipped accessory reconciliation because stable IDs could not be persisted before use.`);
+      return;
+    }
+
+    const normalizedConfig = normalizeDeviceConfigs(
+      this.config,
+      this.log,
+      legacyIdentityCandidates,
+      identityResolution.invalidDevices
+    );
+    const configuredDevices = normalizedConfig.devices;
     const configuredIds = new Set(configuredDevices.map((device) => device.id));
     const configuredUuids = new Set();
+    let hasReconciliationErrors = identityResolution.hasErrors || normalizedConfig.hasErrors;
 
     configuredDevices.forEach((deviceConfig) => {
-      const targetUuid = this.api.hap.uuid.generate(`${PLUGIN_NAME}:${deviceConfig.id}`);
+      const targetUuid = this.api.hap.uuid.generate(deviceConfig.identity.seed);
       let accessory = this.findCachedAccessory(deviceConfig, targetUuid, configuredIds, configuredUuids);
 
       if (!accessory && this.cachedAccessories.has(targetUuid)) {
-        writeWarning(this.log, `${PLATFORM_NAME} device '${deviceConfig.name}' uses an ID whose UUID is retained by another configured accessory and was skipped.`);
+        hasReconciliationErrors = true;
+        writeWarning(this.log, `${PLATFORM_NAME} device '${deviceConfig.name}' uses an identity whose UUID is retained by another configured accessory and was skipped.`);
         return;
       }
 
@@ -121,6 +143,7 @@ class ScheduledSwitchPlatform {
       }
 
       configuredUuids.add(accessory.UUID);
+      writeAccessoryIdentityContext(accessory, deviceConfig.identity);
       accessory.context.deviceId = deviceConfig.id;
       accessory.context.deviceConfig = deviceConfig;
 
@@ -136,6 +159,11 @@ class ScheduledSwitchPlatform {
         this.api.updatePlatformAccessories([accessory]);
       }
     });
+
+    if (hasReconciliationErrors) {
+      writeWarning(this.log, `${PLATFORM_NAME} kept unmatched cached accessories because one or more configured identities were invalid or ambiguous.`);
+      return;
+    }
 
     Array.from(this.cachedAccessories.entries()).forEach(([uuid, accessory]) => {
       if (configuredUuids.has(uuid)) {
@@ -157,17 +185,16 @@ class ScheduledSwitchPlatform {
 
   /**
    * <summary>
-   * Finds the cached accessory represented by a normalized config ID. Persisted
-   * accessory context is checked first because retained accessories can keep a
-   * previous Homebridge UUID. A direct UUID match handles current accessories.
-   * Previous context and UUID candidates then preserve the same logical device,
-   * after which updated context keeps future renames and settings changes stable.
+   * Finds the cached accessory for one current singleton identity. Exact current
+   * structured context has priority, followed by the current UUID. Supported
+   * structured context, legacy deviceId values, and legacy UUID seeds are lookup
+   * candidates only. A retained accessory always keeps its actual Homebridge UUID.
    * </summary>
-   * @param {object} deviceConfig Normalized device configuration.
-   * @param {string} targetUuid UUID generated from the current stable ID.
-   * @param {Set<string>} configuredIds All authoritative IDs in the current valid config.
-   * @param {Set<string>} claimedUuids Cached accessory UUIDs already assigned during this reconciliation.
-   * @returns {object|null} Matching cached accessory or null when a new one is required.
+   * @param {object} deviceConfig Normalized device configuration and identity.
+   * @param {string} targetUuid UUID generated from the current complete seed.
+   * @param {Set<string>} configuredIds Current authoritative base IDs.
+   * @param {Set<string>} claimedUuids Cached UUIDs already assigned this cycle.
+   * @returns {object|null} Retained cached accessory or null when creation is required.
    */
   findCachedAccessory(deviceConfig, targetUuid, configuredIds, claimedUuids) {
     const isUnclaimed = (accessory) => accessory && !claimedUuids.has(accessory.UUID);
@@ -176,18 +203,19 @@ class ScheduledSwitchPlatform {
         return false;
       }
 
-      const cachedId = normalizeIdentifier(accessory.context && accessory.context.deviceId);
+      const reservedId = findReservedCachedBaseId(
+        accessory,
+        deviceConfig.identity.namespace,
+        configuredIds
+      );
 
-      return !cachedId || cachedId === deviceConfig.id || !configuredIds.has(cachedId);
+      return !reservedId || reservedId === deviceConfig.id;
     };
-    const contextMatch = Array.from(this.cachedAccessories.values()).find((accessory) => {
-      const cachedId = accessory && accessory.context && accessory.context.deviceId;
+    const exactContextMatch = Array.from(this.cachedAccessories.values()).find((accessory) =>
+      isUnclaimed(accessory) && matchesAccessoryIdentityContext(accessory, deviceConfig.identity));
 
-      return isUnclaimed(accessory) && normalizeIdentifier(cachedId) === deviceConfig.id;
-    });
-
-    if (contextMatch) {
-      return contextMatch;
+    if (exactContextMatch) {
+      return exactContextMatch;
     }
 
     const directMatch = this.cachedAccessories.get(targetUuid);
@@ -196,26 +224,54 @@ class ScheduledSwitchPlatform {
       return directMatch;
     }
 
-    if (!deviceConfig.legacyId) {
-      return null;
+    const supportedContextIds = new Set([deviceConfig.id, ...deviceConfig.legacyBaseIds]);
+    const legacyStructuredMatch = Array.from(this.cachedAccessories.values()).find((accessory) => {
+      if (!isAvailableFallback(accessory)) {
+        return false;
+      }
+
+      const storedIdentity = readAccessoryIdentityContext(accessory);
+      const storedBaseId = storedIdentity && normalizeIdentityPath(storedIdentity.baseId);
+
+      return Boolean(
+        storedIdentity &&
+        storedIdentity.namespace === deviceConfig.identity.namespace &&
+        storedIdentity.type === null &&
+        Array.isArray(storedIdentity.parts) &&
+        storedIdentity.parts.length === 0 &&
+        storedBaseId &&
+        supportedContextIds.has(storedBaseId)
+      );
+    });
+
+    if (legacyStructuredMatch) {
+      return legacyStructuredMatch;
     }
 
     const legacyContextMatch = Array.from(this.cachedAccessories.values()).find((accessory) => {
-      const cachedId = accessory && accessory.context && accessory.context.deviceId;
+      if (!isAvailableFallback(accessory)) {
+        return false;
+      }
 
-      return isAvailableFallback(accessory) && createLegacyIdentifier(cachedId) === deviceConfig.legacyId;
+      return collectLegacyDeviceContextIds(accessory).some((candidate) =>
+        supportedContextIds.has(candidate));
     });
 
     if (legacyContextMatch) {
       return legacyContextMatch;
     }
 
-    const legacyUuid = this.api.hap.uuid.generate(`${PLUGIN_NAME}:${deviceConfig.legacyId}`);
-    const legacyUuidMatch = this.cachedAccessories.get(legacyUuid);
+    for (const legacySeed of deviceConfig.legacySeeds) {
+      const legacyUuid = this.api.hap.uuid.generate(legacySeed);
+      const legacyUuidMatch = this.cachedAccessories.get(legacyUuid);
 
-    return isAvailableFallback(legacyUuidMatch) ? legacyUuidMatch : null;
+      if (isAvailableFallback(legacyUuidMatch)) {
+        return legacyUuidMatch;
+      }
+    }
+
+    return null;
   }
-
   /**
    * <summary>
    * Creates or updates the runtime controller for one configured platform
@@ -506,13 +562,12 @@ class ScheduledSwitchDevice {
 
 /**
  * <summary>
- * Captures the identifier each configured device would have used under the
- * previous normalization contract before stable IDs are normalized in memory.
- * These transient candidates let reconciliation retain an existing cached
- * accessory when an update changes ID normalization instead of recreating it.
+ * Captures every supported previous base-ID candidate before config writeback.
+ * Version 0.1.6 plugin-prefixed generation, its flat normalization, and the
+ * original name-only UUID form remain lookup candidates only.
  * </summary>
- * @param {object} config Runtime platform configuration before ID preparation.
- * @returns {WeakMap<object, string>} Previous identifier candidate per raw device object.
+ * @param {object} config Runtime platform config before ID preparation.
+ * @returns {WeakMap<object, Array<string>>} Legacy base IDs per raw device object.
  */
 function collectLegacyIdentityCandidates(config) {
   const candidates = new WeakMap();
@@ -523,11 +578,23 @@ function collectLegacyIdentityCandidates(config) {
       return;
     }
 
-    const source = typeof device.id === 'string' && device.id.trim()
-      ? device.id
-      : device.name || `device-${index + 1}`;
+    const values = new Set();
+    const name = normalizeName(device.name, index);
+    const hasConfiguredId = Object.prototype.hasOwnProperty.call(device, 'id');
 
-    candidates.set(device, createLegacyIdentifier(source));
+    if (hasConfiguredId) {
+      addIdentityCandidate(values, normalizeLegacyFlatIdentifier(device.id));
+      addIdentityCandidate(values, createLegacyIdentifier(device.id));
+    } else {
+      addIdentityCandidate(
+        values,
+        createLegacyGeneratedIdentifier(PLUGIN_NAME, name, 'scheduled-switch')
+      );
+    }
+
+    addIdentityCandidate(values, normalizeLegacyFlatIdentifier(name));
+    addIdentityCandidate(values, createLegacyIdentifier(name));
+    candidates.set(device, Array.from(values));
   });
 
   return candidates;
@@ -535,76 +602,92 @@ function collectLegacyIdentityCandidates(config) {
 
 /**
  * <summary>
- * Normalizes all configured devices from the platform config. Only the documented
- * `devices` array creates virtual switches. Root-level properties injected by
- * Homebridge UI, such as `name`, are ignored.
+ * Normalizes the scheduled-switch device array into current runtime records.
+ * Invalid identities are skipped, while the returned error flag tells the
+ * platform to retain unmatched cache entries instead of removing accessories.
  * </summary>
  * @param {object} config Platform configuration object.
  * @param {Function|object} log Homebridge logger.
- * @param {WeakMap<object, string>} legacyIdentityCandidates Previous IDs by raw device object.
- * @returns {Array<object>} Normalized, duplicate-free device configurations.
+ * @param {WeakMap<object, Array<string>>} legacyIdentityCandidates Previous IDs.
+ * @param {WeakSet<object>} invalidDevices Raw devices rejected by ID resolution.
+ * @returns {object} Valid devices and whether any configuration errors occurred.
  */
-function normalizeDeviceConfigs(config, log, legacyIdentityCandidates) {
+function normalizeDeviceConfigs(config, log, legacyIdentityCandidates, invalidDevices) {
   if (!config || typeof config !== 'object' || config.devices === undefined || config.devices === null) {
-    return [];
+    return { devices: [], hasErrors: false };
   }
 
   if (!Array.isArray(config.devices)) {
     writeWarning(log, 'JsgScheduledSwitch devices must be an array. No scheduled switches were loaded.');
-    return [];
+    return { devices: [], hasErrors: true };
   }
 
-  const rawDevices = config.devices;
-  const usedIds = new Set();
+  const normalizedDevices = [];
+  let hasErrors = false;
 
-  return rawDevices.reduce((devices, rawDevice, index) => {
+  config.devices.forEach((rawDevice, index) => {
+    if (!rawDevice || typeof rawDevice !== 'object' || Array.isArray(rawDevice)) {
+      hasErrors = true;
+      writeWarning(log, `JsgScheduledSwitch device ${index + 1} must be an object and was skipped.`);
+      return;
+    }
+
+    if (invalidDevices && invalidDevices.has(rawDevice)) {
+      hasErrors = true;
+      return;
+    }
+
     const deviceConfig = normalizeDeviceConfig(rawDevice, index, log, legacyIdentityCandidates);
 
     if (!deviceConfig) {
-      return devices;
+      hasErrors = true;
+      return;
     }
 
-    if (usedIds.has(deviceConfig.id)) {
-      writeWarning(log, `JsgScheduledSwitch device '${deviceConfig.name}' uses duplicate id '${deviceConfig.id}' and was skipped.`);
-      return devices;
-    }
+    normalizedDevices.push(deviceConfig);
+  });
 
-    usedIds.add(deviceConfig.id);
-    devices.push(deviceConfig);
-    return devices;
-  }, []);
+  const duplicateResolution = removeDuplicateIds(normalizedDevices, log);
+
+  return {
+    devices: duplicateResolution.devices,
+    hasErrors: hasErrors || duplicateResolution.hasErrors
+  };
 }
-
 
 /**
  * <summary>
- * Normalizes one device config into the compact runtime shape used by the
- * platform. The optional `id` is preferred for stable Homebridge identity, while
- * the name remains the user-visible label.
+ * Converts one scheduled switch into the current singleton identity and behavior
+ * shape. Its configured ID owns only the base path. Namespace is added by code
+ * when the complete UUID seed is assembled.
  * </summary>
  * @param {object} rawDevice Raw device config object.
  * @param {number} index Zero-based device index used for defaults and warnings.
  * @param {Function|object} log Homebridge logger.
- * @param {WeakMap<object, string>} legacyIdentityCandidates Previous IDs by raw device object.
- * @returns {object|null} Normalized device config or null when unusable.
+ * @param {WeakMap<object, Array<string>>} legacyIdentityCandidates Previous IDs.
+ * @returns {object|null} Normalized device config or null when invalid.
  */
 function normalizeDeviceConfig(rawDevice, index, log, legacyIdentityCandidates) {
-  if (!rawDevice || typeof rawDevice !== 'object') {
-    writeWarning(log, `JsgScheduledSwitch device ${index + 1} must be an object and was skipped.`);
+  const name = normalizeName(rawDevice.name, index);
+  const id = normalizeIdentityPath(rawDevice.id);
+  const identity = createAccessoryIdentity(PLUGIN_NAME, id);
+
+  if (!id || !identity) {
+    writeWarning(log, `JsgScheduledSwitch device ${index + 1} has no valid current identity and was skipped.`);
     return null;
   }
 
-  const name = normalizeName(rawDevice.name, index);
-  const generatedId = createGeneratedIdentifier(PLUGIN_NAME, name, 'scheduled-switch');
-  const id = normalizeIdentifier(rawDevice.id) || generatedId;
-  const legacyId = legacyIdentityCandidates.get(rawDevice) ||
-    createLegacyIdentifier(rawDevice.name || `device-${index + 1}`);
+  const legacyBaseIds = Array.from(new Set(legacyIdentityCandidates.get(rawDevice) || []))
+    .filter((candidate) => candidate && candidate !== id);
+  const legacySeeds = Array.from(new Set(legacyBaseIds.map((candidate) =>
+    `${PLUGIN_NAME}:${candidate}`)));
   const entries = Array.isArray(rawDevice.entries) ? rawDevice.entries : rawDevice.schedule;
 
   return {
-    generatedId,
     id,
-    legacyId,
+    identity,
+    legacyBaseIds,
+    legacySeeds,
     name,
     entries,
     inverseState: Boolean(rawDevice.inverseState),
@@ -613,6 +696,92 @@ function normalizeDeviceConfig(rawDevice, index, log, legacyIdentityCandidates) 
   };
 }
 
+/**
+ * <summary>
+ * Performs a final defensive duplicate check in the plugin-wide base-ID domain.
+ * ID preparation already reserves this domain, but this guard prevents ambiguous
+ * reconciliation if a future caller bypasses that stage.
+ * </summary>
+ * @param {Array<object>} devices Normalized device configurations.
+ * @param {Function|object} log Homebridge logger used for duplicate warnings.
+ * @returns {object} Unique devices and whether duplicates were rejected.
+ */
+function removeDuplicateIds(devices, log) {
+  const usedIds = new Set();
+  const uniqueDevices = [];
+  let hasErrors = false;
+
+  devices.forEach((device) => {
+    if (usedIds.has(device.id)) {
+      hasErrors = true;
+      writeWarning(log, `JsgScheduledSwitch device '${device.name}' uses duplicate id '${device.id}' and was skipped.`);
+      return;
+    }
+
+    usedIds.add(device.id);
+    uniqueDevices.push(device);
+  });
+
+  return { devices: uniqueDevices, hasErrors };
+}
+
+/**
+ * <summary>
+ * Reads the deviceId context field used by earlier plugin releases through both
+ * the current path formatter and the version 0.1.6 flat formatter.
+ * </summary>
+ * @param {object} accessory Cached Homebridge accessory.
+ * @returns {Array<string>} Canonical current and previous deviceId candidates.
+ */
+function collectLegacyDeviceContextIds(accessory) {
+  const candidates = new Set();
+  const deviceId = accessory && accessory.context && accessory.context.deviceId;
+
+  addIdentityCandidate(candidates, normalizeIdentityPath(deviceId));
+  addIdentityCandidate(candidates, normalizeLegacyFlatIdentifier(deviceId));
+
+  return Array.from(candidates);
+}
+
+/**
+ * <summary>
+ * Finds whether cached context reserves an accessory for another configured base
+ * ID. Structured current context has priority over the older deviceId field.
+ * This prevents one legacy fallback from stealing another configured accessory.
+ * </summary>
+ * @param {object} accessory Cached Homebridge accessory.
+ * @param {string} namespace Current effective plugin namespace.
+ * @param {Set<string>} configuredIds Current authoritative base IDs.
+ * @returns {string|null} Reserved configured base ID or null when unreserved.
+ */
+function findReservedCachedBaseId(accessory, namespace, configuredIds) {
+  const storedIdentity = readAccessoryIdentityContext(accessory);
+
+  if (storedIdentity && storedIdentity.namespace === namespace) {
+    const structuredBaseId = normalizeIdentityPath(storedIdentity.baseId);
+
+    if (structuredBaseId && configuredIds.has(structuredBaseId)) {
+      return structuredBaseId;
+    }
+  }
+
+  return collectLegacyDeviceContextIds(accessory).find((candidate) =>
+    configuredIds.has(candidate)) || null;
+}
+
+/**
+ * <summary>
+ * Adds a usable string identity candidate to a set. Empty and non-string values
+ * are ignored so legacy lookup lists remain deterministic and safe.
+ * </summary>
+ * @param {Set<string>} candidates Candidate collection being assembled.
+ * @param {*} value Potential identity candidate.
+ */
+function addIdentityCandidate(candidates, value) {
+  if (typeof value === 'string' && value) {
+    candidates.add(value);
+  }
+}
 /**
  * <summary>
  * Normalizes the user-visible device name and falls back to a numbered default
