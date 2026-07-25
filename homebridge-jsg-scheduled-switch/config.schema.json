@@ -19,9 +19,8 @@
             "id": {
               "title": "Stable ID",
               "type": "string",
-              "description": "Optional stable identifier for this virtual switch. When omitted, the plugin generates it from the name and writes it to Homebridge config.json. Keep it unchanged when renaming or changing settings.",
-              "minLength": 1,
-              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              "description": "Optional stable identifier for this virtual switch. A stored JSON value is authoritative after normalization and is rewritten only when normalization changes it. A manual value does not need that prefix. When omitted, the plugin generates jsg-scheduled-switch-{normalized-name} and stores it.",
+              "minLength": 1
             },
             "name": {
               "title": "Name",

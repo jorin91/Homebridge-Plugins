@@ -1,6 +1,6 @@
 'use strict';
 
-const { ensureStableDeviceIds } = require('./lib/config-identity');
+const { createGeneratedIdentifier, ensureStableDeviceIds, normalizeIdentifier } = require('./lib/config-identity');
 const schedule = require('./lib/schedule');
 
 const PLUGIN_NAME = 'homebridge-jsg-scheduled-switch';
@@ -13,7 +13,7 @@ const DEVICE_COLLECTIONS = Object.freeze([
   {
     key: 'devices',
     defaultName: DEFAULT_DEVICE_NAME,
-    fallbackId: 'jsg-scheduled-switch',
+    fallbackId: 'scheduled-switch',
     missingNameIdPrefix: 'device'
   }
 ]);
@@ -89,32 +89,38 @@ class ScheduledSwitchPlatform {
    * </summary>
    */
   syncConfiguredDevices() {
+    const legacyIdentityCandidates = collectLegacyIdentityCandidates(this.config);
+
     ensureStableDeviceIds({
       config: this.config,
       api: this.api,
       log: this.log,
       platformName: PLATFORM_NAME,
       collections: DEVICE_COLLECTIONS,
-      normalizeId: normalizeIdentifier,
-      resolveGeneratedId: this.resolveGeneratedDeviceId.bind(this)
+      pluginName: PLUGIN_NAME
     });
 
-    const configuredDevices = normalizeDeviceConfigs(this.config, this.log);
+    const configuredDevices = normalizeDeviceConfigs(this.config, this.log, legacyIdentityCandidates);
+    const configuredIds = new Set(configuredDevices.map((device) => device.id));
     const configuredUuids = new Set();
 
     configuredDevices.forEach((deviceConfig) => {
-      const uuid = this.api.hap.uuid.generate(`${PLUGIN_NAME}:${deviceConfig.id}`);
-      let accessory = this.cachedAccessories.get(uuid);
+      const targetUuid = this.api.hap.uuid.generate(`${PLUGIN_NAME}:${deviceConfig.id}`);
+      let accessory = this.findCachedAccessory(deviceConfig, targetUuid, configuredIds, configuredUuids);
 
-      configuredUuids.add(uuid);
+      if (!accessory && this.cachedAccessories.has(targetUuid)) {
+        writeWarning(this.log, `${PLATFORM_NAME} device '${deviceConfig.name}' uses an ID whose UUID is retained by another configured accessory and was skipped.`);
+        return;
+      }
 
       if (!accessory) {
-        accessory = new this.api.platformAccessory(deviceConfig.name, uuid);
-        this.cachedAccessories.set(uuid, accessory);
+        accessory = new this.api.platformAccessory(deviceConfig.name, targetUuid);
+        this.cachedAccessories.set(targetUuid, accessory);
         this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
         writeInfo(this.log, `Created scheduled switch '${deviceConfig.name}'.`);
       }
 
+      configuredUuids.add(accessory.UUID);
       accessory.context.deviceId = deviceConfig.id;
       accessory.context.deviceConfig = deviceConfig;
 
@@ -151,20 +157,63 @@ class ScheduledSwitchPlatform {
 
   /**
    * <summary>
-   * Resolves a generated name-based identifier against the exact UUID format
-   * used by earlier plugin versions. When that UUID is already cached, its
-   * stored device ID is reused and then written to config.json. This preserves
-   * existing accessories during the first update that introduces persisted IDs.
+   * Finds the cached accessory represented by a normalized config ID. Persisted
+   * accessory context is checked first because retained accessories can keep a
+   * previous Homebridge UUID. A direct UUID match handles current accessories.
+   * Previous context and UUID candidates then preserve the same logical device,
+   * after which updated context keeps future renames and settings changes stable.
    * </summary>
-   * @param {string} generatedId Identifier produced by the legacy name method.
-   * @returns {string} Existing cached identifier or the unchanged generated ID.
+   * @param {object} deviceConfig Normalized device configuration.
+   * @param {string} targetUuid UUID generated from the current stable ID.
+   * @param {Set<string>} configuredIds All authoritative IDs in the current valid config.
+   * @param {Set<string>} claimedUuids Cached accessory UUIDs already assigned during this reconciliation.
+   * @returns {object|null} Matching cached accessory or null when a new one is required.
    */
-  resolveGeneratedDeviceId(generatedId) {
-    const legacyUuid = this.api.hap.uuid.generate(`${PLUGIN_NAME}:${generatedId}`);
-    const accessory = this.cachedAccessories.get(legacyUuid);
-    const cachedId = accessory && accessory.context && accessory.context.deviceId;
+  findCachedAccessory(deviceConfig, targetUuid, configuredIds, claimedUuids) {
+    const isUnclaimed = (accessory) => accessory && !claimedUuids.has(accessory.UUID);
+    const isAvailableFallback = (accessory) => {
+      if (!isUnclaimed(accessory)) {
+        return false;
+      }
 
-    return cachedId ? normalizeIdentifier(cachedId) : generatedId;
+      const cachedId = normalizeIdentifier(accessory.context && accessory.context.deviceId);
+
+      return !cachedId || cachedId === deviceConfig.id || !configuredIds.has(cachedId);
+    };
+    const contextMatch = Array.from(this.cachedAccessories.values()).find((accessory) => {
+      const cachedId = accessory && accessory.context && accessory.context.deviceId;
+
+      return isUnclaimed(accessory) && normalizeIdentifier(cachedId) === deviceConfig.id;
+    });
+
+    if (contextMatch) {
+      return contextMatch;
+    }
+
+    const directMatch = this.cachedAccessories.get(targetUuid);
+
+    if (isAvailableFallback(directMatch)) {
+      return directMatch;
+    }
+
+    if (!deviceConfig.legacyId) {
+      return null;
+    }
+
+    const legacyContextMatch = Array.from(this.cachedAccessories.values()).find((accessory) => {
+      const cachedId = accessory && accessory.context && accessory.context.deviceId;
+
+      return isAvailableFallback(accessory) && createLegacyIdentifier(cachedId) === deviceConfig.legacyId;
+    });
+
+    if (legacyContextMatch) {
+      return legacyContextMatch;
+    }
+
+    const legacyUuid = this.api.hap.uuid.generate(`${PLUGIN_NAME}:${deviceConfig.legacyId}`);
+    const legacyUuidMatch = this.cachedAccessories.get(legacyUuid);
+
+    return isAvailableFallback(legacyUuidMatch) ? legacyUuidMatch : null;
   }
 
   /**
@@ -457,15 +506,45 @@ class ScheduledSwitchDevice {
 
 /**
  * <summary>
+ * Captures the identifier each configured device would have used under the
+ * previous normalization contract before stable IDs are normalized in memory.
+ * These transient candidates let reconciliation retain an existing cached
+ * accessory when an update changes ID normalization instead of recreating it.
+ * </summary>
+ * @param {object} config Runtime platform configuration before ID preparation.
+ * @returns {WeakMap<object, string>} Previous identifier candidate per raw device object.
+ */
+function collectLegacyIdentityCandidates(config) {
+  const candidates = new WeakMap();
+  const devices = config && Array.isArray(config.devices) ? config.devices : [];
+
+  devices.forEach((device, index) => {
+    if (!device || typeof device !== 'object' || Array.isArray(device)) {
+      return;
+    }
+
+    const source = typeof device.id === 'string' && device.id.trim()
+      ? device.id
+      : device.name || `device-${index + 1}`;
+
+    candidates.set(device, createLegacyIdentifier(source));
+  });
+
+  return candidates;
+}
+
+/**
+ * <summary>
  * Normalizes all configured devices from the platform config. Only the documented
  * `devices` array creates virtual switches. Root-level properties injected by
  * Homebridge UI, such as `name`, are ignored.
  * </summary>
  * @param {object} config Platform configuration object.
  * @param {Function|object} log Homebridge logger.
+ * @param {WeakMap<object, string>} legacyIdentityCandidates Previous IDs by raw device object.
  * @returns {Array<object>} Normalized, duplicate-free device configurations.
  */
-function normalizeDeviceConfigs(config, log) {
+function normalizeDeviceConfigs(config, log, legacyIdentityCandidates) {
   if (!config || typeof config !== 'object' || config.devices === undefined || config.devices === null) {
     return [];
   }
@@ -479,7 +558,7 @@ function normalizeDeviceConfigs(config, log) {
   const usedIds = new Set();
 
   return rawDevices.reduce((devices, rawDevice, index) => {
-    const deviceConfig = normalizeDeviceConfig(rawDevice, index, log);
+    const deviceConfig = normalizeDeviceConfig(rawDevice, index, log, legacyIdentityCandidates);
 
     if (!deviceConfig) {
       return devices;
@@ -506,20 +585,26 @@ function normalizeDeviceConfigs(config, log) {
  * @param {object} rawDevice Raw device config object.
  * @param {number} index Zero-based device index used for defaults and warnings.
  * @param {Function|object} log Homebridge logger.
+ * @param {WeakMap<object, string>} legacyIdentityCandidates Previous IDs by raw device object.
  * @returns {object|null} Normalized device config or null when unusable.
  */
-function normalizeDeviceConfig(rawDevice, index, log) {
+function normalizeDeviceConfig(rawDevice, index, log, legacyIdentityCandidates) {
   if (!rawDevice || typeof rawDevice !== 'object') {
     writeWarning(log, `JsgScheduledSwitch device ${index + 1} must be an object and was skipped.`);
     return null;
   }
 
   const name = normalizeName(rawDevice.name, index);
-  const id = normalizeIdentifier(rawDevice.id || rawDevice.name || `device-${index + 1}`);
+  const generatedId = createGeneratedIdentifier(PLUGIN_NAME, name, 'scheduled-switch');
+  const id = normalizeIdentifier(rawDevice.id) || generatedId;
+  const legacyId = legacyIdentityCandidates.get(rawDevice) ||
+    createLegacyIdentifier(rawDevice.name || `device-${index + 1}`);
   const entries = Array.isArray(rawDevice.entries) ? rawDevice.entries : rawDevice.schedule;
 
   return {
+    generatedId,
     id,
+    legacyId,
     name,
     entries,
     inverseState: Boolean(rawDevice.inverseState),
@@ -548,14 +633,14 @@ function normalizeName(value, index) {
 
 /**
  * <summary>
- * Converts a configured id or name into a stable ASCII identifier for Homebridge
- * UUID generation. Stable ids let users rename a switch without creating a new
- * Homebridge accessory as long as the `id` value itself remains unchanged.
+ * Reproduces the exact identifier normalization used before the shared
+ * plugin-prefixed ID contract. It is used only to locate a cached accessory
+ * during migration and never becomes the new automatically generated config ID.
  * </summary>
- * @param {string} value Configured id or name.
- * @returns {string} Stable normalized identifier.
+ * @param {*} value Legacy device name or fallback source.
+ * @returns {string} Legacy normalized identifier used by earlier accessory UUIDs.
  */
-function normalizeIdentifier(value) {
+function createLegacyIdentifier(value) {
   const normalized = String(value || '')
     .trim()
     .toLowerCase()

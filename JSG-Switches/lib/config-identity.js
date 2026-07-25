@@ -6,19 +6,18 @@ const path = require('path');
 /**
  * <summary>
  * Assigns every configured device a stable unique identifier before Homebridge
- * reconciles cached accessories. Existing configured identifiers remain the
- * preferred identity. Missing identifiers are generated through the supplied
- * plugin-specific normalizer and are persisted to Homebridge config.json so a
- * later display-name or behavior change keeps using the same accessory UUID.
+ * reconciles cached accessories. Existing configured identifiers are normalized
+ * and remain authoritative. Missing identifiers use the shared
+ * jsg-plugin-device format and are persisted to Homebridge config.json so later
+ * display-name or behavior changes keep using the same accessory identity.
  * </summary>
  * @param {object} options Identity preparation options.
  * @param {object} options.config Runtime platform config supplied by Homebridge.
  * @param {object} options.api Homebridge API used to locate config.json.
  * @param {Function|object} options.log Homebridge logger.
+ * @param {string} options.pluginName Package-level Homebridge plugin name.
  * @param {string} options.platformName Platform alias stored in config.json.
  * @param {Array<object>} options.collections Device array definitions.
- * @param {Function} options.normalizeId Plugin-specific identifier normalizer.
- * @param {Function} [options.resolveGeneratedId] Optional cached-accessory migration resolver.
  * @returns {boolean} True when one or more runtime config identifiers changed.
  */
 function ensureStableDeviceIds(options) {
@@ -45,7 +44,7 @@ function ensureStableDeviceIds(options) {
         return;
       }
 
-      const configuredId = normalizeOptionalIdentifier(device.id, options.normalizeId, collection.fallbackId);
+      const configuredId = normalizeOptionalIdentifier(device.id);
       const name = normalizeDeviceName(device.name, collection.defaultName, index);
 
       deviceRecords.push({
@@ -74,16 +73,12 @@ function ensureStableDeviceIds(options) {
       return;
     }
 
-    const generatedSource = getLegacyIdentifierSource(record);
-    const generatedId = options.normalizeId(generatedSource, record.collection.fallbackId);
-    const resolvedGeneratedId = resolveGeneratedIdentifier(
-      options.resolveGeneratedId,
-      generatedId,
-      record.collection,
-      record.device,
-      record.index
+    const generatedId = createGeneratedIdentifier(
+      options.pluginName,
+      record.name,
+      record.collection.fallbackId
     );
-    const stableId = reserveUniqueIdentifier(resolvedGeneratedId, usedIds);
+    const stableId = reserveUniqueIdentifier(generatedId, usedIds);
 
     if (record.device.id !== stableId) {
       record.device.id = stableId;
@@ -101,44 +96,78 @@ function ensureStableDeviceIds(options) {
 /**
  * <summary>
  * Normalizes a user-supplied identifier only when it contains a meaningful
- * value. Empty or missing values remain absent so the normal name-based fallback
- * and cached-accessory migration path can generate the initial identity.
+ * value. Missing values remain absent so the plugin-prefixed automatic fallback
+ * can create and persist the initial identity.
  * </summary>
  * @param {*} value Configured identifier value.
- * @param {Function} normalizeId Plugin-specific identifier normalizer.
- * @param {string} fallbackId Collection fallback identifier.
  * @returns {string|null} Normalized configured identifier or null when absent.
  */
-function normalizeOptionalIdentifier(value, normalizeId, fallbackId) {
+function normalizeOptionalIdentifier(value) {
   if (typeof value !== 'string' || !value.trim()) {
     return null;
   }
 
-  return normalizeId(value, fallbackId);
+  return normalizeIdentifier(value) || null;
 }
 
 /**
  * <summary>
- * Applies the optional migration resolver to a newly generated identifier. The
- * resolver can confirm or recover the identifier already represented by a cached
- * accessory. Invalid resolver output falls back to the generated identifier so
- * startup cannot lose the legacy name-based identity.
+ * Creates an automatic identifier using the shared
+ * jsg-plugin-name-device-name contract. Packaging and owner prefixes are removed
+ * from the plugin segment so jsg appears once at the start of the generated ID.
  * </summary>
- * @param {Function} resolver Optional migration resolver.
- * @param {string} generatedId Identifier generated with the legacy name method.
- * @param {object} collection Current device collection definition.
- * @param {object} device Raw configured device.
- * @param {number} index Zero-based index within the collection.
- * @returns {string} Generated or recovered identifier.
+ * @param {string} pluginName Package-level Homebridge plugin name.
+ * @param {string} deviceName Configured or fallback accessory display name.
+ * @param {string} fallbackDeviceName Collection fallback identifier.
+ * @returns {string} Normalized generated identifier.
  */
-function resolveGeneratedIdentifier(resolver, generatedId, collection, device, index) {
-  if (typeof resolver !== 'function') {
-    return generatedId;
+function createGeneratedIdentifier(pluginName, deviceName, fallbackDeviceName) {
+  const pluginSegment = normalizePluginSegment(pluginName);
+  const deviceSegment = normalizeIdentifier(deviceName) ||
+    normalizeIdentifier(fallbackDeviceName) ||
+    'accessory';
+
+  return normalizeIdentifier(`jsg-${pluginSegment}-${deviceSegment}`);
+}
+
+/**
+ * <summary>
+ * Derives the plugin segment used in automatically generated accessory IDs.
+ * Npm scopes are removed first. Repeated leading homebridge packaging prefixes
+ * and JSG owner prefixes are then removed to keep the resulting prefix concise.
+ * </summary>
+ * @param {string} pluginName Package-level Homebridge plugin name.
+ * @returns {string} Normalized plugin segment without packaging or owner prefix.
+ */
+function normalizePluginSegment(pluginName) {
+  const rawName = String(pluginName || '');
+  const unscopedName = rawName.includes('/') ? rawName.split('/').pop() : rawName;
+  const segments = normalizeIdentifier(unscopedName).split('-').filter(Boolean);
+
+  while (segments[0] === 'homebridge' || segments[0] === 'jsg') {
+    segments.shift();
   }
 
-  const resolvedId = resolver(generatedId, collection, device, index);
+  return segments.join('-') || 'plugin';
+}
 
-  return typeof resolvedId === 'string' && resolvedId ? resolvedId : generatedId;
+/**
+ * <summary>
+ * Normalizes public accessory identifiers to lowercase ASCII. Whitespace becomes
+ * a hyphen. Characters outside lowercase letters, digits, and hyphens are
+ * removed. Repeated, leading, and trailing hyphens are removed from the result.
+ * </summary>
+ * @param {*} value Identifier source value.
+ * @returns {string} Normalized identifier or an empty string when no valid content remains.
+ */
+function normalizeIdentifier(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/(^-|-$)/g, '');
 }
 
 /**
@@ -185,27 +214,8 @@ function normalizeDeviceName(value, defaultName, index) {
 
 /**
  * <summary>
- * Returns the identifier source used by the plugin version being migrated. Most
- * collections used the normalized display name. A collection can provide a
- * missing-name prefix when an older implementation used an index fallback before
- * normalizing its display name.
- * </summary>
- * @param {object} record Prepared device identity record.
- * @returns {*} Legacy identifier source value.
- */
-function getLegacyIdentifierSource(record) {
-  const prefix = record.collection.missingNameIdPrefix;
-
-  if (prefix && !record.device.name) {
-    return `${prefix}-${record.index + 1}`;
-  }
-
-  return prefix ? record.device.name : record.name;
-}
-
-/**
- * <summary>
- * Copies generated runtime identifiers into the matching platform block in
+ * Copies generated or normalized runtime identifiers into the matching
+ * platform block in
  * Homebridge config.json. Only device id fields are changed. Existing platform
  * settings and device behavior properties are read from disk and preserved.
  * Failures are logged without aborting accessory startup.
@@ -218,7 +228,7 @@ function persistDeviceIds(options) {
     const configPath = resolveConfigPath(options.api);
 
     if (!configPath) {
-      writeWarning(options.log, `${options.platformName} could not persist generated device IDs because Homebridge did not expose a config path.`);
+      writeWarning(options.log, `${options.platformName} could not persist stable device IDs because Homebridge did not expose a config path.`);
       return false;
     }
 
@@ -229,7 +239,7 @@ function persistDeviceIds(options) {
     const platformConfig = findPlatformConfig(homebridgeConfig, options.platformName, options.config);
 
     if (!platformConfig) {
-      writeWarning(options.log, `${options.platformName} could not find its platform block in Homebridge config.json. Generated device IDs were not persisted.`);
+      writeWarning(options.log, `${options.platformName} could not find its platform block in Homebridge config.json. Stable device IDs were not persisted.`);
       return false;
     }
 
@@ -245,10 +255,10 @@ function persistDeviceIds(options) {
     const output = `${hasByteOrderMark ? '\uFEFF' : ''}${serializedConfig}${newline}`;
 
     fs.writeFileSync(configPath, output, 'utf8');
-    writeInfo(options.log, `${options.platformName} stored generated device IDs in Homebridge config.json.`);
+    writeInfo(options.log, `${options.platformName} stored stable device IDs in Homebridge config.json.`);
     return true;
   } catch (error) {
-    writeWarning(options.log, `${options.platformName} could not persist generated device IDs in Homebridge config.json: ${error.message}`);
+    writeWarning(options.log, `${options.platformName} could not persist stable device IDs in Homebridge config.json: ${error.message}`);
     return false;
   }
 }
@@ -400,5 +410,7 @@ function writeWarning(log, message) {
 }
 
 module.exports = {
-  ensureStableDeviceIds
+  createGeneratedIdentifier,
+  ensureStableDeviceIds,
+  normalizeIdentifier
 };
