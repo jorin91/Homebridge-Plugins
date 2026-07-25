@@ -14,5 +14,8 @@ config.json
 # Separate plugin repositories are managed outside the central Homebridge-Plugins repo.
 homebridge-nefit-easy/
 
+# Temporarily local-only plugins are retained in this workspace but excluded from the central repository.
+homebridge-jsg-weather/
+
 # Package artifacts are uploaded to releases, not committed.
 *.tgz
